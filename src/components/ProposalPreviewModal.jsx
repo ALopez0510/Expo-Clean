@@ -1,29 +1,21 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { LucideIcon } from './LucideIcon';
+import { bandPosition } from '../utils/analysis';
+import { formatUSD, formatInt, formatOne, formatDec } from '../utils/format';
 
 export function ProposalPreviewModal({ result, projectName, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   if (!result) return null;
 
-  const {
-    costBreakdown,
-    unitEconomics,
-    staffingMetrics,
-    yieldMetrics,
-    sercopBenchmark,
-    inputs
-  } = result;
+  const { costBreakdown, unitEconomics, staffingMetrics, yieldMetrics, sercopBenchmark, inputs } = result;
+  const position = bandPosition(unitEconomics.unitPricePerM2, sercopBenchmark);
 
-  const formatUSD = (val) =>
-    new Intl.NumberFormat('es-EC', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(val);
-
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
   const handleExportCSV = () => {
     const csvContent = [
@@ -73,236 +65,233 @@ export function ProposalPreviewModal({ result, projectName, onClose }) {
     document.body.removeChild(link);
   };
 
-  const currentDate = new Date().toLocaleDateString('es-EC', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric'
-  });
+  const currentDate = new Date().toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' });
 
   return (
-    <div className="modal-overlay" id="proposal-modal-overlay">
-      <div className="modal-container">
-        <div className="modal-header no-print">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div className="card-icon-badge" style={{ background: '#ecfdf5', color: '#059669', width: '32px', height: '32px' }}>
-              <LucideIcon name="FileText" size={18} />
-            </div>
-            <div>
-              <h3 style={{ fontSize: '1.05rem', color: '#0f172a', fontWeight: 700 }}>Oferta Técnico-Financiera Oficial</h3>
-              <p style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                Documento ejecutivo listo para licitación, auditoría SERCOP y comité técnico
-              </p>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '0.65rem' }}>
-            <button className="btn-secondary" onClick={handleExportCSV}>
-              <LucideIcon name="Download" size={14} /> Exportar CSV
+    <div className="modal-overlay" id="proposal-modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="proposal-title">
+        <div className="modal-head no-print">
+          <h2 id="proposal-title">Oferta técnico-financiera</h2>
+          <div className="modal-actions">
+            <button className="btn" onClick={handleExportCSV}>
+              <LucideIcon name="Download" />
+              <span>Exportar CSV</span>
             </button>
-            <button className="btn-primary" onClick={handlePrint}>
-              <LucideIcon name="Printer" size={14} /> Imprimir / PDF
+            <button className="btn btn-primary" onClick={handlePrint}>
+              <LucideIcon name="Printer" />
+              <span>Imprimir o guardar PDF</span>
             </button>
-            <button className="btn-secondary" onClick={onClose} style={{ padding: '0.5rem 0.75rem' }}>
-              <LucideIcon name="X" size={16} />
+            <button className="btn btn-icon" onClick={onClose} aria-label="Cerrar">
+              <LucideIcon name="X" />
             </button>
           </div>
         </div>
 
         <div className="modal-body">
-          {/* THE TENDER DOCUMENT (Formatted for Screen & Print) */}
           <div className="tender-document" id="printable-tender-document">
-            {/* Header */}
             <div className="tender-header">
-              <div className="tender-logo">
-                <h2>CLEANSERVICES FACILITY MANAGEMENT</h2>
-                <p>Soluciones Integrales de Higiene, Desinfección y Mantenimiento Corporativo</p>
-                <p style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                  Miembro de FEDELIMP • Proveedor Calificado SERCOP CPC 85330 • ISO 9001 / ISO 45001 / BPM
-                </p>
+              <div>
+                <h2>[Nombre de la empresa]</h2>
+                <p className="muted">Propuesta generada con CleanQuote. Documento de demostración: completa los datos de tu empresa.</p>
               </div>
               <div className="tender-meta">
-                <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '1.05rem' }}>
-                  PROPUESTA TÉCNICO-FINANCIERA
+                <div>
+                  <strong>Propuesta técnico-financiera</strong>
                 </div>
-                <div>Código: <strong>COT-2026-EC-{(inputs.areaM2 * 7).toString().slice(0, 5)}</strong></div>
-                <div>Código CPC SERCOP: <strong>{inputs.infrastructureType.cpcCode || '85330.00.1'}</strong></div>
-                <div>Fecha de Emisión: <strong>{currentDate}</strong></div>
-                <div>Validez de la Oferta: <strong>30 días calendario</strong></div>
+                <div>Código: COT-2026-EC-{(inputs.areaM2 * 7).toString().slice(0, 5)}</div>
+                <div>CPC de referencia: {inputs.infrastructureType.cpcCode || '85330.00.1'}</div>
+                <div>Emitida el {currentDate}</div>
+                <div>Validez: 30 días calendario</div>
               </div>
             </div>
 
-            {/* Customer & Scope */}
             <div className="tender-section">
-              <h3>1. Información General del Servicio</h3>
+              <h3>1. Información del servicio</h3>
               <div className="tender-grid">
                 <div>
-                  <p><strong>Cliente / Proyecto:</strong> {projectName}</p>
-                  <p><strong>Tipología Evaluada:</strong> {inputs.infrastructureType.name}</p>
-                  <p><strong>Área Contratada:</strong> {Number(inputs.areaM2).toLocaleString()} m²</p>
+                  <p>
+                    <strong>Cliente o proyecto:</strong> {projectName}
+                  </p>
+                  <p>
+                    <strong>Tipo de infraestructura:</strong> {inputs.infrastructureType.name}
+                  </p>
+                  <p>
+                    <strong>Área contratada:</strong> {formatInt(inputs.areaM2)} m²
+                  </p>
                 </div>
                 <div>
-                  <p><strong>Nivel de Riesgo Sanitario:</strong> Nivel {inputs.sanitaryRiskLevel.level} ({inputs.sanitaryRiskLevel.label})</p>
-                  <p><strong>Régimen Operativo:</strong> {inputs.shiftRegime.label}</p>
-                  <p><strong>Intensidad de Tráfico:</strong> {inputs.trafficLevel.label}</p>
+                  <p>
+                    <strong>Riesgo sanitario:</strong> {inputs.sanitaryRiskLevel.label}
+                  </p>
+                  <p>
+                    <strong>Régimen operativo:</strong> {inputs.shiftRegime.label}
+                  </p>
+                  <p>
+                    <strong>Tráfico peatonal:</strong> {inputs.trafficLevel.label}
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Technical Specifications */}
             <div className="tender-section">
-              <h3>2. Especificaciones Técnicas y Bioseguridad</h3>
-              <p style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>
-                El servicio ha sido dimensionado bajo un <strong>modelo algorítmico paramétrico</strong> calibrado con las normativas del SERCOP y los protocolos del Ministerio de Salud Pública (MSP):
+              <h3>2. Especificaciones técnicas y bioseguridad</h3>
+              <p style={{ marginBottom: '0.6rem' }}>
+                El servicio se dimensionó con un modelo paramétrico que toma como referencia las bandas del SERCOP y los protocolos del
+                Ministerio de Salud Pública.
               </p>
               <table className="tender-table">
                 <tbody>
                   <tr>
-                    <td style={{ width: '35%', fontWeight: 600 }}>Protocolo Químico Aplicado:</td>
+                    <td style={{ width: '35%', fontWeight: 600 }}>Protocolo químico</td>
                     <td>{inputs.disinfectionProtocol.name}</td>
                   </tr>
                   <tr>
-                    <td style={{ fontWeight: 600 }}>Normativa Regulatoria:</td>
+                    <td style={{ fontWeight: 600 }}>Normativa</td>
                     <td>{inputs.disinfectionProtocol.normative}</td>
                   </tr>
                   <tr>
-                    <td style={{ fontWeight: 600 }}>Agentes Activos & Dilución:</td>
-                    <td>{inputs.disinfectionProtocol.chemicalProduct} (Tiempo de contacto: {inputs.disinfectionProtocol.contactTimeMinutes} min.)</td>
+                    <td style={{ fontWeight: 600 }}>Agentes activos</td>
+                    <td>
+                      {inputs.disinfectionProtocol.chemicalProduct}. Tiempo de contacto: {inputs.disinfectionProtocol.contactTimeMinutes} min.
+                    </td>
                   </tr>
                   <tr>
-                    <td style={{ fontWeight: 600 }}>Rendimiento Paramétrico:</td>
-                    <td>{yieldMetrics.effectiveYieldM2H.toFixed(1)} m²/hora (ajustado por riesgo microbiológico, tráfico y grado de mecanización)</td>
+                    <td style={{ fontWeight: 600 }}>Rendimiento</td>
+                    <td>
+                      {formatDec(yieldMetrics.effectiveYieldM2H, 1)} m² por hora, ajustado por riesgo, tráfico, protocolo y mecanización
+                    </td>
                   </tr>
                   <tr>
-                    <td style={{ fontWeight: 600 }}>Equipamiento Tecnológico:</td>
+                    <td style={{ fontWeight: 600 }}>Equipamiento</td>
                     <td>{inputs.machineryOption.label}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
 
-            {/* Staffing */}
             <div className="tender-section">
-              <h3>3. Cuadro de Asignación de Recursos Humanos (FTE)</h3>
+              <h3>3. Personal asignado</h3>
               <table className="tender-table">
                 <thead>
                   <tr>
-                    <th>Perfil Operativo</th>
-                    <th>Jornada / Horario</th>
-                    <th>Personal Asignado</th>
-                    <th>Carga Mensual</th>
+                    <th>Perfil</th>
+                    <th>Jornada</th>
+                    <th>Personal</th>
+                    <th>Carga mensual</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td>Operario de Limpieza Diurno</td>
-                    <td>Turno Matutino / Vespertino</td>
-                    <td>{staffingMetrics.dayFTE.toFixed(1)} FTE</td>
-                    <td>{Math.round(staffingMetrics.dayFTE * staffingMetrics.effectiveHoursPerFTE)} horas</td>
+                    <td>Operario de limpieza diurno</td>
+                    <td>Turno matutino y vespertino</td>
+                    <td>{formatOne(staffingMetrics.dayFTE)} FTE</td>
+                    <td>{formatInt(staffingMetrics.dayFTE * staffingMetrics.effectiveHoursPerFTE)} horas</td>
                   </tr>
                   {staffingMetrics.nightFTE > 0 && (
                     <tr>
-                      <td>Operario Técnico Nocturno (Recargo 25% Art. 49)</td>
-                      <td>Turno Nocturno / Madrugada</td>
-                      <td>{staffingMetrics.nightFTE.toFixed(1)} FTE</td>
-                      <td>{Math.round(staffingMetrics.nightFTE * staffingMetrics.effectiveHoursPerFTE)} horas</td>
+                      <td>Operario nocturno (recargo 25 %, Art. 49)</td>
+                      <td>Turno nocturno</td>
+                      <td>{formatOne(staffingMetrics.nightFTE)} FTE</td>
+                      <td>{formatInt(staffingMetrics.nightFTE * staffingMetrics.effectiveHoursPerFTE)} horas</td>
                     </tr>
                   )}
                   <tr>
-                    <td>Supervisión Técnica & Relevos Legales</td>
-                    <td>Continuidad 100% Código de Trabajo</td>
-                    <td>Incluido en estructura</td>
-                    <td>Garantía de descanso semanal 48h</td>
+                    <td>Supervisión técnica y relevos</td>
+                    <td>Según Código del Trabajo</td>
+                    <td colSpan="2">Incluidos en la estructura de costos</td>
                   </tr>
-                  <tr style={{ fontWeight: 700, background: '#f8fafc' }}>
-                    <td colSpan="2">TOTAL FUERZA LABORAL CALIFICADA</td>
-                    <td>{staffingMetrics.assignedFTE.toFixed(1)} FTE</td>
-                    <td>{Math.round(yieldMetrics.monthlyRequiredHours)} horas/mes</td>
+                  <tr className="strong">
+                    <td colSpan="2">Total</td>
+                    <td>{formatOne(staffingMetrics.assignedFTE)} FTE</td>
+                    <td>{formatInt(yieldMetrics.monthlyRequiredHours)} horas al mes</td>
                   </tr>
                 </tbody>
               </table>
-              <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.4rem' }}>
-                * Todo el personal cuenta con remuneración acorde a la Tabla Sectorial No. 19 del Ministerio del Trabajo ($721.09/mes diurno), afiliación inmediata al IESS, décimos mensualizados, fondos de reserva, seguro ocupacional y EPP certificado.
+              <p className="note" style={{ marginTop: '0.5rem' }}>
+                Remuneración calculada sobre el SBU 2026 y la normativa del Ministerio del Trabajo: {formatUSD(staffingMetrics.unitDayLaborCost)} al mes
+                por operario diurno (costo empresa), con IESS, décimos mensualizados, fondos de reserva, seguro ocupacional y EPP.
               </p>
             </div>
 
-            {/* Pricing Summary */}
             <div className="tender-section">
-              <h3>4. Propuesta Económica y Costos Unitarios</h3>
+              <h3>4. Propuesta económica</h3>
               <table className="tender-table">
                 <thead>
                   <tr>
-                    <th>Concepto Económico</th>
-                    <th style={{ textAlign: 'right' }}>Valor Mensual (USD)</th>
-                    <th style={{ textAlign: 'right' }}>Valor Unitario (USD/m²)</th>
+                    <th>Concepto</th>
+                    <th className="num">Mensual (USD)</th>
+                    <th className="num">Por m² (USD)</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td>Costos Directos (Mano de Obra + Insumos Químicos + EPP + Equipamiento)</td>
-                    <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(costBreakdown.totalDirectCost)}</td>
-                    <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(costBreakdown.totalDirectCost / inputs.areaM2)}</td>
+                    <td>Costos directos (mano de obra, insumos, EPP y equipamiento)</td>
+                    <td className="num">{formatUSD(costBreakdown.totalDirectCost)}</td>
+                    <td className="num">{formatUSD(costBreakdown.totalDirectCost / inputs.areaM2)}</td>
                   </tr>
                   <tr>
-                    <td>Gastos Indirectos, Logística y Supervisión Central ({inputs.indirectRate}%)</td>
-                    <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(costBreakdown.indirect.amount)}</td>
-                    <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(costBreakdown.indirect.amount / inputs.areaM2)}</td>
+                    <td>Gastos indirectos, logística y supervisión ({inputs.indirectRate} %)</td>
+                    <td className="num">{formatUSD(costBreakdown.indirect.amount)}</td>
+                    <td className="num">{formatUSD(costBreakdown.indirect.amount / inputs.areaM2)}</td>
                   </tr>
-                  <tr style={{ background: '#f1f5f9', fontWeight: 600 }}>
-                    <td>Costo Técnico Operativo Total</td>
-                    <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(costBreakdown.totalCost)}</td>
-                    <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(unitEconomics.unitCostPerM2)}</td>
+                  <tr>
+                    <td>
+                      <strong>Costo técnico operativo</strong>
+                    </td>
+                    <td className="num">
+                      <strong>{formatUSD(costBreakdown.totalCost)}</strong>
+                    </td>
+                    <td className="num">
+                      <strong>{formatUSD(unitEconomics.unitCostPerM2)}</strong>
+                    </td>
                   </tr>
-                  <tr style={{ background: '#ecfdf5', fontWeight: 800, color: '#065f46', fontSize: '1rem' }}>
-                    <td>PRECIO FINAL MENSUAL (Sin IVA)</td>
-                    <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(costBreakdown.recommendedSellingPrice)}</td>
-                    <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(unitEconomics.unitPricePerM2)}</td>
+                  <tr className="strong">
+                    <td>Precio final mensual (sin IVA)</td>
+                    <td className="num">{formatUSD(costBreakdown.recommendedSellingPrice)}</td>
+                    <td className="num">{formatUSD(unitEconomics.unitPricePerM2)}</td>
                   </tr>
                 </tbody>
               </table>
-              <div style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: '#475569', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <span>* Valores expresados en Dólares de los Estados Unidos de América (USD). No incluye IVA (15%).</span>
-                <span>Costo Hora Efectiva Operaria: <strong>{formatUSD(unitEconomics.pricePerHour)} /h</strong></span>
-              </div>
+              <p className="note" style={{ marginTop: '0.5rem' }}>
+                Valores en dólares de los Estados Unidos. No incluyen IVA. Costo por hora efectiva operaria: {formatUSD(unitEconomics.pricePerHour)}.
+              </p>
             </div>
 
-            {/* SERCOP Compliance Certificate */}
-            <div className="tender-section" style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-              <h3 style={{ borderBottom: 'none', marginBottom: '0.5rem', color: '#0f172a', fontSize: '0.95rem' }}>
-                5. Certificación de Conformidad SERCOP (LOSNCP) & Tabla MDT
-              </h3>
-              <div style={{ fontSize: '0.8rem', color: '#334155', lineHeight: 1.5 }}>
-                <p>
-                  <strong>Clasificador Central de Productos (CPC):</strong> {sercopBenchmark?.cpcCode || '85330'} • <em>{inputs.infrastructureType.name}</em>
-                </p>
-                <p>
-                  <strong>Banda Oficial de Referencia SERCOP:</strong> ${sercopBenchmark?.minRateM2?.toFixed(2)} a ${sercopBenchmark?.maxRateM2?.toFixed(2)} USD/m² mes (Promedio Oficial: ${sercopBenchmark?.avgRateM2?.toFixed(2)}/m²).
-                </p>
-                <p>
-                  <strong>Evaluación de Conformidad:</strong> La tarifa propuesta de <strong>{formatUSD(unitEconomics.unitPricePerM2)}/m²</strong> se encuentra {sercopBenchmark?.isInOfficialBand ? '100% dentro de la banda oficial acreditada en el portal de Compras Públicas del Ecuador' : 'técnicamente fundamentada bajo especificaciones de alta exigencia'}.
-                </p>
-                <p style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: '#64748b' }}>
-                  Base legal: Ley Orgánica del Sistema Nacional de Contratación Pública (LOSNCP), Resoluciones SERCOP vigentes y Tabla Sectorial No. 19 del Ministerio del Trabajo de Ecuador.
-                </p>
-              </div>
+            <div className="tender-section">
+              <h3>5. Contraste con la banda referencial SERCOP</h3>
+              <p>
+                <strong>CPC:</strong> {sercopBenchmark?.cpcCode || '85330'}, {inputs.infrastructureType.name}.
+              </p>
+              <p>
+                <strong>Banda referencial:</strong> {formatUSD(sercopBenchmark?.minRateM2)} a {formatUSD(sercopBenchmark?.maxRateM2)} por m² al mes
+                (promedio {formatUSD(sercopBenchmark?.avgRateM2)}).
+              </p>
+              <p>
+                <strong>Resultado:</strong> la tarifa propuesta de {formatUSD(unitEconomics.unitPricePerM2)} por m²{' '}
+                {position.id === 'inside'
+                  ? 'queda dentro de la banda referencial.'
+                  : position.id === 'near'
+                    ? 'queda apenas fuera de la banda referencial.'
+                    : 'queda fuera de la banda referencial y se fundamenta en las condiciones de alta exigencia del servicio.'}
+              </p>
+              <p className="note" style={{ marginTop: '0.5rem' }}>
+                Referencias: Ley Orgánica del Sistema Nacional de Contratación Pública, resoluciones del SERCOP vigentes y normativa
+                laboral vigente del Ministerio del Trabajo de Ecuador.
+              </p>
             </div>
 
-            {/* Signatures */}
             <div className="tender-signatures">
               <div className="signature-box">
-                <strong>Ing. Analista de Costos y Licitaciones</strong>
-                <p>CleanServices Facility Management</p>
-                <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Firma y Sello Comercial</p>
+                <strong>Analista de costos y licitaciones</strong>
+                <p>Firma y sello comercial</p>
               </div>
-
               <div className="signature-box">
-                <strong>Dirección de Operaciones y Calidad</strong>
-                <p>Auditoría Microbiológica y Bioseguridad</p>
-                <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Aprobación Técnica</p>
+                <strong>Dirección de operaciones y calidad</strong>
+                <p>Aprobación técnica</p>
               </div>
-
               <div className="signature-box">
-                <strong>Representante Legal / Cliente</strong>
+                <strong>Representante legal o cliente</strong>
                 <p>{projectName}</p>
-                <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Aceptación de la Propuesta</p>
               </div>
             </div>
           </div>

@@ -78,12 +78,20 @@ export function calculateQuote(params) {
   // 1. COBERTURA NORMATIVA Y DIMENSIONAMIENTO DE PERSONAL (FTE)
   // Fórmula paramétrica: Cobertura_efectiva = (Cobertura_normada * k_maquinaria) / (k_riesgo * k_trafico)
   const baseCoverageM2 = infra.normativeYieldM2PerFTE || 900;
-  const effectiveCoverageM2 = (baseCoverageM2 * machinery.yieldMultiplier) / (risk.factor * traffic.factor);
+  // Factor de tiempo por protocolo de desinfección: más minutos de contacto = más tiempo de trabajo por m² (supuesto a validar)
+  const protocolTimeFactor = 1 + Math.max(0, protocol.contactTimeMinutes - ECUADOR_LABOR_CONFIG.standardContactMinutes) * ECUADOR_LABOR_CONFIG.protocolTimePenaltyPerMin;
+  const effectiveCoverageM2 = (baseCoverageM2 * machinery.yieldMultiplier) / (risk.factor * traffic.factor * protocolTimeFactor);
   const rawBaseFTE = areaM2 / effectiveCoverageM2;
 
   // Aplicación del factor de jornada laboral y relevos obligatorios por ley
   const totalCalculatedFTE = rawBaseFTE * (shift.workloadFactor || 1.0);
-  const assignedFTE = Math.max(1, Math.round(totalCalculatedFTE * 10) / 10);
+  const areaBasedFTE = Math.max(1, Math.round(totalCalculatedFTE * 10) / 10);
+  // Piso de cobertura: en regímenes con presencia continua debe haber al menos 1 persona durante todas las horas de operación
+  const coverageFloorFTE = shift.requiresContinuousPresence
+    ? Math.round(((shift.operatingDaysMonth * shift.hoursPerDay) / ECUADOR_LABOR_CONFIG.horasMesPorOperario) * 10) / 10
+    : 0;
+  const coverageFloorApplied = coverageFloorFTE > areaBasedFTE;
+  const assignedFTE = Math.max(areaBasedFTE, coverageFloorFTE);
   const roundedFTEInt = Math.ceil(assignedFTE);
 
   // Desglose de operarios por turnos diurnos vs nocturnos
@@ -100,7 +108,7 @@ export function calculateQuote(params) {
   // 2. RENDIMIENTO OPERATIVO Y HORAS REQUERIDAS MENSUALES
   // R_efectivo (m²/h) = (R_base * k_maquinaria) / (k_riesgo * k_trafico)
   const baseYieldM2H = infra.baseYieldM2H;
-  const effectiveYieldM2H = (baseYieldM2H * machinery.yieldMultiplier) / (risk.factor * traffic.factor);
+  const effectiveYieldM2H = (baseYieldM2H * machinery.yieldMultiplier) / (risk.factor * traffic.factor * protocolTimeFactor);
   const effectiveHoursPerFTE = ECUADOR_LABOR_CONFIG.horasMesPorOperario * ECUADOR_LABOR_CONFIG.factorEficienciaOEE; // 136 h/mes
   const monthlyRequiredHours = assignedFTE * effectiveHoursPerFTE;
   const dailyRequiredHours = monthlyRequiredHours / shift.operatingDaysMonth;
@@ -142,7 +150,7 @@ export function calculateQuote(params) {
   const totalCost = totalDirectCost + indirectCost;
 
   // 5. PRECIO DE VENTA Y UTILIDAD
-  const marginDecimal = targetMargin / 100;
+  const marginDecimal = Math.min(Math.max(targetMargin, 0), 80) / 100; // evita división por cero con márgenes >= 100%
   const recommendedSellingPrice = totalCost / (1 - marginDecimal);
   const grossProfit = recommendedSellingPrice - totalCost;
   const effectiveMarginPercent = (grossProfit / recommendedSellingPrice) * 100;
@@ -168,16 +176,16 @@ export function calculateQuote(params) {
   const isInOfficialBand = (unitPricePerM2 >= sercopRef.minRateM2 * 0.90) && (unitPricePerM2 <= sercopRef.maxRateM2 * 1.10);
 
   let sercopStatus = 'aligned';
-  let sercopStatusLabel = '100% Conforme a Pliegos Oficiales SERCOP';
+  let sercopStatusLabel = 'Dentro de la banda referencial';
   if (isInOfficialBand) {
     sercopStatus = 'aligned';
-    sercopStatusLabel = 'Conforme a Banda Referencial SERCOP (CPC 85330)';
+    sercopStatusLabel = 'Dentro de la banda referencial, con tolerancia de ±10 % (CPC 85330)';
   } else if (unitPricePerM2 < sercopRef.minRateM2 * 0.90) {
     sercopStatus = 'optimized';
-    sercopStatusLabel = 'Oferta Altamente Competitiva / Mecanizada';
+    sercopStatusLabel = 'Bajo la banda: oferta muy competitiva o muy mecanizada';
   } else {
     sercopStatus = 'specialized';
-    sercopStatusLabel = 'Tarifa Técnica Diferenciada por Alta Criticidad';
+    sercopStatusLabel = 'Sobre la banda: tarifa diferenciada por criticidad o cobertura';
   }
 
   // 7. BENCHMARK COMPARATIVO: MÉTODO TRADICIONAL (TARIFA PLANA)
@@ -230,6 +238,7 @@ export function calculateQuote(params) {
       baseCoverageM2,
       effectiveCoverageM2,
       effectiveYieldM2H,
+      protocolTimeFactor,
       yieldBonusFactor: machinery.yieldMultiplier,
       hoursPerCleaningCycle: areaM2 / effectiveYieldM2H,
       dailyInterventions,
@@ -241,6 +250,9 @@ export function calculateQuote(params) {
       reliefFactor: shift.reliefFactor || 1.0,
       totalCalculatedFTE,
       assignedFTE,
+      areaBasedFTE,
+      coverageFloorFTE,
+      coverageFloorApplied,
       roundedFTEInt,
       dayFTE,
       nightFTE,
@@ -303,7 +315,7 @@ export function calculateQuote(params) {
       isInOfficialBand,
       status: sercopStatus,
       statusLabel: sercopStatusLabel,
-      legalWageCompliance: `MDT Comisión No. 19 ($${unitDayLabor.totalMonthlyCost.toFixed(2)}/mes operario diurno con todos los beneficios de ley IESS)`
+      legalWageCompliance: `SBU $${sbu.toFixed(2)} + beneficios de ley IESS: costo empresa $${unitDayLabor.totalMonthlyCost.toFixed(2)}/mes por operario diurno`
     },
     traditionalBenchmark: {
       ratePerM2: benchmarkFlatRatePerM2,

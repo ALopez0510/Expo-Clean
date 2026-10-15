@@ -1,87 +1,19 @@
 import React from 'react';
 import {
-  Hospital,
-  Activity,
-  UtensilsCrossed,
-  Building2,
-  Factory,
-  GraduationCap,
-  SlidersHorizontal,
-  Maximize2,
-  ShieldAlert,
-  ShieldCheck,
-  Users,
-  Clock,
-  FlaskConical,
-  Cpu,
-  TrendingUp,
-  Percent,
-  DollarSign,
-  Scale,
-  FileText,
+  ChevronDown,
+  Check,
+  X,
   Printer,
   Download,
-  X,
-  Award,
-  CheckCircle2,
-  AlertTriangle,
-  AlertCircle,
-  Sparkles,
-  FileSpreadsheet,
-  Calculator,
-  Layers,
-  ChevronRight,
-  TrendingDown,
-  Briefcase,
-  HelpCircle,
-  BarChart3,
-  Calendar,
-  Zap,
-  ArrowRight
+  FileText,
+  FileCheck,
+  Award
 } from 'lucide-react';
 
-const iconMap = {
-  Hospital,
-  Activity,
-  UtensilsCrossed,
-  Building2,
-  Factory,
-  GraduationCap,
-  SlidersHorizontal,
-  Maximize2,
-  ShieldAlert,
-  ShieldCheck,
-  Users,
-  Clock,
-  FlaskConical,
-  Cpu,
-  TrendingUp,
-  Percent,
-  DollarSign,
-  Scale,
-  FileText,
-  Printer,
-  Download,
-  X,
-  Award,
-  CheckCircle2,
-  AlertTriangle,
-  AlertCircle,
-  Sparkles,
-  FileSpreadsheet,
-  Calculator,
-  Layers,
-  ChevronRight,
-  TrendingDown,
-  Briefcase,
-  HelpCircle,
-  BarChart3,
-  Calendar,
-  Zap,
-  ArrowRight
-};
+const iconMap = { ChevronDown, Check, X, Printer, Download, FileText, FileCheck, Award };
 
-export function LucideIcon({ name, size = 18, className = '', color, ...props }) {
-  const IconComponent = iconMap[name] || Sparkles;
-  return <IconComponent size={size} className={className} color={color} {...props} />;
+export function LucideIcon({ name, size = 16, className = '', color, ...props }) {
+  const Icon = iconMap[name];
+  if (!Icon) return null;
+  return <Icon size={size} className={className} color={color} aria-hidden="true" {...props} />;
 }

@@ -6,7 +6,7 @@
 
 // Parámetros económicos y laborales oficiales de Ecuador (USD)
 export const ECUADOR_LABOR_CONFIG = {
-  sbuBase: 475.00, // Salario Básico Unificado / Comisión Sectorial No. 19 MDT Ecuador
+  sbuBase: 482.00, // Salario Básico Unificado 2026 (Ecuador). Antes: 475. Verificar tabla sectorial MDT vigente si se cita.
   iessPatronalRate: 0.1215, // 12.15% Aporte Patronal IESS
   decimoTerceroRate: 1 / 12, // Décimo tercer sueldo mensualizado (8.33%)
   decimoCuartoRate: 1 / 12, // Décimo cuarto sueldo mensualizado (1 SBU / 12)
@@ -17,6 +17,8 @@ export const ECUADOR_LABOR_CONFIG = {
   seguroCapacitacion: 14.00, // Exámenes médicos ocupacionales, seguro contra accidentes y capacitación
   recargoNocturnoRate: 0.25, // 25% de recargo jornada nocturna (Art. 49 Código del Trabajo: 19:00 a 06:00)
   horasMesPorOperario: 160, // 40 horas semanales x 4 semanas
+  protocolTimePenaltyPerMin: 0.02, // SUPUESTO A VALIDAR CON EL SECTOR: +2% de tiempo de trabajo por cada minuto de contacto sobre el protocolo estándar
+  standardContactMinutes: 2, // Tiempo de contacto del protocolo estándar (referencia 0% de recargo)
   factorEficienciaOEE: 0.85 // 85% de productividad efectiva (descuenta fatiga ergonómica, traslados y descansos de ley)
 };
 
@@ -27,6 +29,8 @@ export const INFRASTRUCTURE_TYPES = {
     name: 'Área Crítica Hospitalaria (Quirófanos / UCI / Aislamiento)',
     category: 'Salud & Bioseguridad',
     iconName: 'Hospital',
+    cpcCode: '85330.01.1',
+    description: 'Quirófanos, UCI, áreas de aislamiento y esterilización con cobertura continua y riesgo microbiológico crítico.',
     normativeYieldM2PerFTE: 500, // Cobertura normada por operario en áreas críticas 24h
     baseYieldM2H: 75, // Rendimiento de desinfección profunda en m²/hora
     defaultRiskLevel: 5,
@@ -401,6 +405,7 @@ export const SHIFT_REGIMES = {
     operatingDaysMonth: 30,
     hoursPerDay: 16,
     nightSurcharge: true,
+    requiresContinuousPresence: true, // Debe haber personal presente durante todas las horas de operación
     reliefFactor: 1.25,
     workloadFactor: 1.22,
     description: 'Patios de comida de centros comerciales, supermercados y terminales.'
@@ -412,6 +417,7 @@ export const SHIFT_REGIMES = {
     operatingDaysMonth: 30,
     hoursPerDay: 24,
     nightSurcharge: true,
+    requiresContinuousPresence: true, // Debe haber personal presente durante todas las horas de operación
     reliefFactor: 1.45,
     workloadFactor: 1.42,
     description: 'Quirófanos, salas de emergencia hospitalaria y plantas de producción continua.'

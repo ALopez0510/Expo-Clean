@@ -1,13 +1,24 @@
 import React, { useState, useMemo } from 'react';
 import { Header } from './components/Header';
 import { InputPanel } from './components/InputPanel';
+import { PriceHero } from './components/PriceHero';
 import { ResultsDashboard } from './components/ResultsDashboard';
 import { ComparativeAnalysis } from './components/ComparativeAnalysis';
+import { ValidationPanel } from './components/ValidationPanel';
+import { CompliancePanel } from './components/CompliancePanel';
 import { ProposalPreviewModal } from './components/ProposalPreviewModal';
 import { HackathonDefenseTab } from './components/HackathonDefenseTab';
-import { LucideIcon } from './components/LucideIcon';
 import { calculateQuote } from './utils/calculator.js';
+import { presetToState, bandPosition } from './utils/analysis.js';
+import { formatUSD } from './utils/format.js';
 import { REAL_PRESETS, INFRASTRUCTURE_TYPES } from './data/parametricData.js';
+
+const TABS = [
+  { id: 'desglose', label: 'Desglose del precio' },
+  { id: 'tarifa-plana', label: 'Frente a tarifa plana' },
+  { id: 'validacion', label: 'Validación' },
+  { id: 'cumplimiento', label: 'Cumplimiento' }
+];
 
 export function App() {
   const initialPreset = REAL_PRESETS[0];
@@ -15,46 +26,26 @@ export function App() {
   const [selectedPresetId, setSelectedPresetId] = useState(initialPreset.id);
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [showDefenseModal, setShowDefenseModal] = useState(false);
-  const [activeTab, setActiveTab] = useState('cotizador');
+  const [activeTab, setActiveTab] = useState('desglose');
+  const [formState, setFormState] = useState(presetToState(initialPreset));
 
-  const [formState, setFormState] = useState({
-    projectName: initialPreset.name,
-    infrastructureTypeId: initialPreset.infrastructureType,
-    areaM2: initialPreset.areaM2,
-    sanitaryRiskLevelNumber: initialPreset.sanitaryRiskLevel,
-    trafficLevelId: initialPreset.trafficLevel,
-    disinfectionProtocolId: initialPreset.disinfectionProtocol,
-    shiftRegimeId: initialPreset.shiftRegime,
-    machineryOptionId: initialPreset.machineryOption,
-    targetMargin: initialPreset.targetMargin,
-    indirectRate: initialPreset.indirectRate,
-    benchmarkFlatRatePerM2: 1.25 // Tarifa plana tradicional común en Ecuador
-  });
-
-  const quoteResult = useMemo(() => {
-    return calculateQuote(formState);
-  }, [formState]);
+  const quoteResult = useMemo(() => calculateQuote(formState), [formState]);
+  const position = bandPosition(quoteResult.unitEconomics.unitPricePerM2, quoteResult.sercopBenchmark);
 
   const handleFieldChange = (field, value) => {
-    setFormState((prev) => ({
-      ...prev,
-      [field]: value
-    }));
-    if (field !== 'benchmarkFlatRatePerM2') {
-      setSelectedPresetId('custom');
-    }
+    setFormState((prev) => ({ ...prev, [field]: value }));
+    if (field !== 'benchmarkFlatRatePerM2') setSelectedPresetId('custom');
   };
 
   const handleTypologySelect = (typologyId) => {
-    const defaultData = INFRASTRUCTURE_TYPES[typologyId];
-    if (!defaultData) return;
-
+    const defaults = INFRASTRUCTURE_TYPES[typologyId];
+    if (!defaults) return;
     setFormState((prev) => ({
       ...prev,
       infrastructureTypeId: typologyId,
-      sanitaryRiskLevelNumber: defaultData.defaultRiskLevel,
-      trafficLevelId: defaultData.defaultTraffic,
-      disinfectionProtocolId: defaultData.defaultProtocol
+      sanitaryRiskLevelNumber: defaults.defaultRiskLevel,
+      trafficLevelId: defaults.defaultTraffic,
+      disinfectionProtocolId: defaults.defaultProtocol
     }));
     setSelectedPresetId('custom');
   };
@@ -62,28 +53,20 @@ export function App() {
   const handlePresetSelect = (presetId) => {
     setSelectedPresetId(presetId);
     if (presetId === 'custom') return;
-
     const preset = REAL_PRESETS.find((p) => p.id === presetId);
     if (!preset) return;
+    setFormState(presetToState(preset));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
-    setFormState({
-      projectName: preset.name,
-      infrastructureTypeId: preset.infrastructureType,
-      areaM2: preset.areaM2,
-      sanitaryRiskLevelNumber: preset.sanitaryRiskLevel,
-      trafficLevelId: preset.trafficLevel,
-      disinfectionProtocolId: preset.disinfectionProtocol,
-      shiftRegimeId: preset.shiftRegime,
-      machineryOptionId: preset.machineryOption,
-      targetMargin: preset.targetMargin,
-      indirectRate: preset.indirectRate,
-      benchmarkFlatRatePerM2: 1.25
-    });
+  const onKeyTabs = (e) => {
+    const i = TABS.findIndex((t) => t.id === activeTab);
+    if (e.key === 'ArrowRight') setActiveTab(TABS[(i + 1) % TABS.length].id);
+    if (e.key === 'ArrowLeft') setActiveTab(TABS[(i - 1 + TABS.length) % TABS.length].id);
   };
 
   return (
     <div className="app-shell" id="app-root-shell">
-      {/* Top Header Bar */}
       <Header
         selectedPresetId={selectedPresetId}
         onSelectPreset={handlePresetSelect}
@@ -91,134 +74,59 @@ export function App() {
         onOpenDefense={() => setShowDefenseModal(true)}
       />
 
-      {/* Main Tabs Navigation */}
-      <nav className="main-nav-tabs no-print">
-        <div className="nav-tabs-container">
-          <button
-            className={`tab-btn ${activeTab === 'cotizador' ? 'active' : ''}`}
-            onClick={() => setActiveTab('cotizador')}
-            id="tab-btn-cotizador"
-          >
-            <LucideIcon name="BarChart3" size={15} />
-            <span>Estructuración de Costos & Cotización</span>
-          </button>
-          <button
-            className={`tab-btn ${activeTab === 'comparativa' ? 'active' : ''}`}
-            onClick={() => setActiveTab('comparativa')}
-            id="tab-btn-comparativa"
-          >
-            <LucideIcon name="Scale" size={15} />
-            <span>Comparativa vs. Método Tradicional</span>
-          </button>
-          <button
-            className={`tab-btn ${activeTab === 'auditoria' ? 'active' : ''}`}
-            onClick={() => setActiveTab('auditoria')}
-            id="tab-btn-auditoria"
-          >
-            <LucideIcon name="ShieldCheck" size={15} />
-            <span>Blindaje Operativo & Bioseguridad</span>
-          </button>
-        </div>
-      </nav>
+      <div className="mini-price" aria-hidden="true">
+        <span>
+          <strong>{formatUSD(quoteResult.unitEconomics.unitPricePerM2)}</strong> por m²
+        </span>
+        <span>{position.label}</span>
+      </div>
 
-      {/* Main Content Area */}
-      <main className="main-content">
-        <div className="calc-grid">
-          {/* Left Column: Interactive Parametric Input Panel */}
-          <InputPanel
-            formState={formState}
-            onChangeField={handleFieldChange}
-            onTypologySelect={handleTypologySelect}
-          />
+      <main className="layout">
+        <InputPanel formState={formState} onChangeField={handleFieldChange} onTypologySelect={handleTypologySelect} />
 
-          {/* Right Column: Dynamic Results, Dashboards & Comparative */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
-            {activeTab === 'cotizador' && (
-              <>
-                <ResultsDashboard result={quoteResult} />
+        <div className="main">
+          <div className="hero-block">
+            <PriceHero result={quoteResult} projectName={formState.projectName} />
+          </div>
+
+          <div className="tabs-block">
+            <div className="tabs" role="tablist" aria-label="Análisis de la oferta" onKeyDown={onKeyTabs}>
+              {TABS.map((t) => (
+                <button
+                  key={t.id}
+                  id={`tab-btn-${t.id}`}
+                  className="tab"
+                  role="tab"
+                  aria-selected={activeTab === t.id}
+                  aria-controls={`panel-${t.id}`}
+                  tabIndex={activeTab === t.id ? 0 : -1}
+                  onClick={() => setActiveTab(t.id)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="panel" role="tabpanel" id={`panel-${activeTab}`} aria-labelledby={`tab-btn-${activeTab}`}>
+              {activeTab === 'desglose' && <ResultsDashboard result={quoteResult} />}
+
+              {activeTab === 'tarifa-plana' && (
                 <ComparativeAnalysis
                   result={quoteResult}
                   onChangeBenchmarkRate={(rate) => handleFieldChange('benchmarkFlatRatePerM2', rate)}
                 />
-              </>
-            )}
+              )}
 
-            {activeTab === 'comparativa' && (
-              <>
-                <ComparativeAnalysis
-                  result={quoteResult}
-                  onChangeBenchmarkRate={(rate) => handleFieldChange('benchmarkFlatRatePerM2', rate)}
-                />
-                <ResultsDashboard result={quoteResult} />
-              </>
-            )}
+              {activeTab === 'validacion' && (
+                <ValidationPanel formState={formState} result={quoteResult} onSelectPreset={handlePresetSelect} />
+              )}
 
-            {activeTab === 'auditoria' && (
-              <div className="glass-card">
-                <div className="card-header">
-                  <div className="card-title-group">
-                    <div className="card-icon-badge" style={{ background: '#ecfdf5', color: '#059669' }}>
-                      <LucideIcon name="ShieldCheck" size={18} />
-                    </div>
-                    <div>
-                      <h2>Auditoría de Cumplimiento Sanitario y Viabilidad Laboral</h2>
-                      <p className="card-subtitle">
-                        Validación estricta de normativas laborales del MDT y bioseguridad del MSP
-                      </p>
-                    </div>
-                  </div>
-                  <span className="hackathon-badge">Normativa Ecuador 2026</span>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
-                  <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', padding: '1rem', borderRadius: '10px' }}>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>CÓDIGO DEL TRABAJO ECUADOR</div>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0284c7', marginTop: '0.25rem' }}>
-                      40h / semana
-                    </div>
-                    <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.35rem', lineHeight: 1.4 }}>
-                      Asignación legal con factor de relevo del {((quoteResult.staffingMetrics.reliefFactor - 1) * 100).toFixed(0)}% para cubrir descansos obligatorios de 48h.
-                    </p>
-                  </div>
-
-                  <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', padding: '1rem', borderRadius: '10px' }}>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>RECARGO NOCTURNO ART. 49</div>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#d97706', marginTop: '0.25rem' }}>
-                      +25% Por Ley
-                    </div>
-                    <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.35rem', lineHeight: 1.4 }}>
-                      {quoteResult.staffingMetrics.nightFTE > 0
-                        ? `${quoteResult.staffingMetrics.nightFTE.toFixed(1)} operarios nocturnos calculados con salario diferenciado ($${quoteResult.staffingMetrics.unitNightLaborCost.toFixed(2)}/mes).`
-                        : 'Jornada diurna sin recargo nocturno.'}
-                    </p>
-                  </div>
-
-                  <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', padding: '1rem', borderRadius: '10px' }}>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>TIEMPO DE CONTACTO QUÍMICO</div>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#059669', marginTop: '0.25rem' }}>
-                      {quoteResult.inputs.disinfectionProtocol.contactTimeMinutes} Minutos
-                    </div>
-                    <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.35rem', lineHeight: 1.4 }}>
-                      Garantía de inactivación de patógenos según ficha técnica ({quoteResult.inputs.disinfectionProtocol.chemicalProduct}).
-                    </p>
-                  </div>
-                </div>
-
-                <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '1.25rem', borderRadius: '10px' }}>
-                  <h4 style={{ color: '#065f46', marginBottom: '0.5rem', fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <LucideIcon name="CheckCircle2" size={17} /> Dictamen de Auditoría Paramétrica & Cumplimiento SERCOP:
-                  </h4>
-                  <p style={{ fontSize: '0.85rem', color: '#166534', lineHeight: 1.6 }}>
-                    La oferta generada para <strong>{formState.projectName}</strong> cuenta con un respaldo matemático que blinda el margen de rentabilidad de la empresa al {quoteResult.costBreakdown.profit.percentage.toFixed(1)}% (sin peligro de subcotización ni pérdidas imprevistas) y garantiza que el cliente final reciba {Math.round(quoteResult.yieldMetrics.monthlyRequiredHours)} horas/hombre mensuales certificadas bajo la norma <em>{quoteResult.inputs.disinfectionProtocol.normative}</em>, cumpliendo estrictamente con la banda referencial SERCOP de <strong>${quoteResult.sercopBenchmark?.minRateM2?.toFixed(2)} a ${quoteResult.sercopBenchmark?.maxRateM2?.toFixed(2)} /m²</strong> (CPC {quoteResult.sercopBenchmark?.cpcCode}).
-                  </p>
-                </div>
-              </div>
-            )}
+              {activeTab === 'cumplimiento' && <CompliancePanel result={quoteResult} projectName={formState.projectName} />}
+            </div>
           </div>
         </div>
       </main>
 
-      {/* Modal 1: Formal Technical-Financial Proposal Document */}
       {showProposalModal && (
         <ProposalPreviewModal
           result={quoteResult}
@@ -227,10 +135,7 @@ export function App() {
         />
       )}
 
-      {/* Modal 2: Hackathon Defense & Official Evaluation Matrix */}
-      {showDefenseModal && (
-        <HackathonDefenseTab onClose={() => setShowDefenseModal(false)} />
-      )}
+      {showDefenseModal && <HackathonDefenseTab onClose={() => setShowDefenseModal(false)} />}
     </div>
   );
 }
