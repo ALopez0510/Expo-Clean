@@ -48,10 +48,12 @@ Todas las fórmulas y matrices de rendimiento del sistema están estrictamente c
 
 ## ⚙️ Tecnologías Utilizadas
 
-- **Framework:** React 19 + Vite 6
-- **Iconografía:** Lucide React (vectorial)
-- **Estilos:** Vanilla CSS con paleta Apple Light Theme y tipografía San Francisco
-- **Exportación:** Generación interactiva de propuestas ejecutivas en PDF y exportación directa a formato CSV
+- **Frontend:** SPA Vanilla JavaScript en `index.html`
+- **Estilos:** Tailwind CSS vía CDN y CSS inline del runtime existente
+- **Visualización:** Chart.js vía CDN, con fallback textual cuando no carga
+- **Backend:** Node.js + Express
+- **Persistencia:** PostgreSQL mediante `pg`, accesible al servidor por Tailscale
+- **Autenticación:** `express-session` + `bcrypt`; el navegador nunca recibe credenciales de base de datos
 
 ---
 
@@ -68,15 +70,17 @@ Todas las fórmulas y matrices de rendimiento del sistema están estrictamente c
    npm install
    ```
 
-3. Iniciar el servidor de desarrollo:
+3. Iniciar el servidor completo (SPA + API en `127.0.0.1:8000`):
    ```bash
-   npm run dev
+   npm start
    ```
 
-4. Compilar para producción:
+4. Abrir en el navegador:
    ```bash
-   npm run build
+   http://127.0.0.1:8000/
    ```
+
+La contraseña de PostgreSQL solo se proporciona mediante `DB_PASSWORD` en un `.env` local basado en `.env.example`. La migración SQL está en `server/migrations/001_add_password_hash.sql` y las cuentas existentes se consultan directamente desde PostgreSQL; no existe un paso de seed en el runtime.
 
 ---
 
