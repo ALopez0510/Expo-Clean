@@ -11,7 +11,7 @@ const PROJECT_ROOT = path.resolve(SERVER_DIR, "..");
 dotenv.config({ path: path.join(PROJECT_ROOT, ".env") });
 
 export const DB_CONFIG = {
-  host: process.env.DB_HOST || "desktop-o7rhpvg.taila61603.ts.net",
+  host: process.env.DB_HOST || "localhost",
   port: Number(process.env.DB_PORT || 5432),
   database: process.env.DB_NAME || "al_bd",
   user: process.env.DB_USER || "al_app",

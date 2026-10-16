@@ -13,14 +13,14 @@ Antes de modificar, explicar o documentar cualquier funcionalidad:
 6. No declares una funcionalidad como implementada sin encontrar su lógica real y su conexión al flujo de ejecución.
 
 ## Estructura actual detectada
-El repositorio actual usa una aplicación React/Vite con, entre otros:
-- `index.html`
-- `src/main.jsx`
-- `src/App.jsx`
-- `src/components/`
-- `src/data/`
-- `src/utils/`
-- `vite.config.js`
+El repositorio actual usa una SPA en Vanilla JavaScript servida por un backend Node/Express:
+- `index.html`: frontend completo (Tailwind y Chart.js vía CDN).
+- `server/`: API Express, autenticación por sesión y acceso a PostgreSQL.
+- `server/migrations/`: migraciones SQL.
+- `tests/`: tests de contrato del servidor (`npm test`).
+- `tools/`: scripts auxiliares (datos demo).
+
+`src/` contiene la versión React/Vite anterior y ya no se sirve ni tiene dependencias instaladas.
 
 No conviertas, migres o reemplaces esta arquitectura por otra salvo que una instrucción explícita de la fase ordene hacerlo. Si una fase exige una migración arquitectónica, primero identifica el impacto y conserva la funcionalidad existente durante la transición.
 
