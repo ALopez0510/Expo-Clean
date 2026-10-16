@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  ExternalLink,
   Hospital,
   Activity,
   UtensilsCrossed,
@@ -37,10 +38,19 @@ import {
   BarChart3,
   Calendar,
   Zap,
-  ArrowRight
+  ArrowRight,
+  ChevronDown,
+  Info,
+  FolderKanban,
+  Check,
+  PieChart
 } from 'lucide-react';
 
 const iconMap = {
+  ChevronDown,
+  Info,
+  FolderKanban,
+  Check,
   Hospital,
   Activity,
   UtensilsCrossed,
@@ -48,6 +58,7 @@ const iconMap = {
   Factory,
   GraduationCap,
   SlidersHorizontal,
+  Sliders: SlidersHorizontal,
   Maximize2,
   ShieldAlert,
   ShieldCheck,
@@ -78,7 +89,9 @@ const iconMap = {
   BarChart3,
   Calendar,
   Zap,
-  ArrowRight
+  ArrowRight,
+  ExternalLink,
+  PieChart
 };
 
 export function LucideIcon({ name, size = 18, className = '', color, ...props }) {
