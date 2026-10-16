@@ -1,83 +1,72 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { LucideIcon } from './LucideIcon';
+import { SOURCES, ECUADOR_LABOR_CONFIG } from '../data/parametricData.js';
+import { formatUSD } from './ResultsDashboard';
 
 export function ProposalPreviewModal({ result, projectName, onClose }) {
+  const [providerName, setProviderName] = useState('');
   if (!result) return null;
 
-  const {
-    costBreakdown,
-    unitEconomics,
-    staffingMetrics,
-    yieldMetrics,
-    sercopBenchmark,
-    inputs
-  } = result;
+  const { costBreakdown, unitEconomics, staffingMetrics, yieldMetrics, reference, inputs } = result;
+  const provider = providerName.trim() || '[RAZÓN SOCIAL DEL PROVEEDOR]';
 
-  const formatUSD = (val) =>
-    new Intl.NumberFormat('es-EC', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(val);
-
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
   const handleExportCSV = () => {
-    const csvContent = [
-      ['PROPUESTA TECNICO-FINANCIERA DE FACILITY MANAGEMENT - EXPO CLEAN 2026'],
+    const rows = [
+      ['PROPUESTA TECNICO-FINANCIERA (BORRADOR GENERADO CON CLEANQUOTE PRO)'],
+      ['Proveedor', provider],
       ['Proyecto / Cliente', projectName],
       ['Tipologia', inputs.infrastructureType.name],
-      ['Codigo CPC SERCOP', inputs.infrastructureType.cpcCode || '85330'],
-      ['Banda Referencial SERCOP (USD/m2)', `$${sercopBenchmark?.minRateM2?.toFixed(2)} - $${sercopBenchmark?.maxRateM2?.toFixed(2)}`],
+      ['CPC de referencia', reference.cpcCode],
+      ['Referencia publica (USD/m2)', reference.kind === 'contratos' ? `${reference.minPriceM2.toFixed(2)} - ${reference.maxPriceM2.toFixed(2)}` : reference.priceM2.toFixed(2)],
+      ['Fuente de referencia', reference.label],
       ['Area Total (m2)', inputs.areaM2],
       ['Riesgo Sanitario', `Nivel ${inputs.sanitaryRiskLevel.level}`],
       ['Trafico Peatonal', inputs.trafficLevel.label],
       ['Regimen de Turnos', inputs.shiftRegime.label],
       ['Protocolo Quimico', inputs.disinfectionProtocol.name],
-      ['Normativa Aplicable', inputs.disinfectionProtocol.normative],
+      ['Frecuencia (pasadas/dia)', inputs.dailyFrequency],
       [''],
-      ['METRICAS OPERATIVAS Y RECURSOS'],
-      ['Rendimiento Efectivo (m2/h)', yieldMetrics.effectiveYieldM2H.toFixed(2)],
-      ['Horas Mensuales Requeridas', Math.round(yieldMetrics.monthlyRequiredHours)],
-      ['Personal Total (FTE)', staffingMetrics.assignedFTE.toFixed(1)],
-      ['Operarios Diurnos', staffingMetrics.dayFTE.toFixed(1)],
-      ['Operarios Nocturnos', staffingMetrics.nightFTE.toFixed(1)],
-      ['Costo Laboral Unitario FTE (USD/mes)', staffingMetrics.unitDayLaborCost.toFixed(2)],
+      ['METRICAS OPERATIVAS'],
+      ['Cobertura por auxiliar/turno (m2)', yieldMetrics.coverageM2PerPost.toFixed(0)],
+      ...staffingMetrics.shiftRows.map((r) => [`Puestos ${r.name}`, r.posts]),
+      ['Personal Total (FTE)', staffingMetrics.assignedFTE.toFixed(2)],
+      ['Supervisores', staffingMetrics.supervisors],
+      ['Horas de cobertura mensuales', Math.round(yieldMetrics.monthlyRequiredHours)],
+      ['Costo empresa por FTE diurno (USD/mes)', staffingMetrics.unitDayLaborCost.toFixed(2)],
       [''],
-      ['ESTRUCTURA ECONOMICA Y COSTOS UNITARIOS'],
-      ['Mano de Obra Directa (USD)', costBreakdown.labor.amount.toFixed(2)],
-      ['Insumos Quimicos (USD)', costBreakdown.chemicals.amount.toFixed(2)],
-      ['EPP y Bioseguridad (USD)', costBreakdown.ppe.amount.toFixed(2)],
-      ['Maquinaria y Equipos (USD)', costBreakdown.equipment.amount.toFixed(2)],
-      ['Costos Indirectos (USD)', costBreakdown.indirect.amount.toFixed(2)],
-      ['Costo Tecnico Total (USD)', costBreakdown.totalCost.toFixed(2)],
-      ['Margen de Rentabilidad (USD)', costBreakdown.profit.amount.toFixed(2)],
-      ['Margen Porcentual (%)', `${costBreakdown.profit.percentage.toFixed(1)}%`],
-      ['PRECIO TOTAL MENSUAL (USD)', costBreakdown.recommendedSellingPrice.toFixed(2)],
-      ['PRECIO UNITARIO POR M2 (USD/m2)', unitEconomics.unitPricePerM2.toFixed(3)],
-      ['PRECIO POR HORA OPERARIA (USD/h)', unitEconomics.pricePerHour.toFixed(2)]
-    ]
-      .map((row) => row.map((cell) => `"${cell}"`).join(','))
-      .join('\n');
-
+      ['ESTRUCTURA ECONOMICA (USD/mes)'],
+      ['Mano de Obra Directa', costBreakdown.labor.amount.toFixed(2)],
+      ['  de la cual recargo nocturno', costBreakdown.labor.nightSurcharge.toFixed(2)],
+      ['  de la cual supervision', costBreakdown.labor.supervision.toFixed(2)],
+      ['Insumos Quimicos', costBreakdown.chemicals.amount.toFixed(2)],
+      ['EPP y Bioseguridad', costBreakdown.ppe.amount.toFixed(2)],
+      ['Maquinaria y Equipos', costBreakdown.equipment.amount.toFixed(2)],
+      ['Gastos Indirectos', costBreakdown.indirect.amount.toFixed(2)],
+      ['Costo Tecnico Total', costBreakdown.totalCost.toFixed(2)],
+      ['Margen (antes de participacion e impuestos)', costBreakdown.profit.amount.toFixed(2)],
+      ['Margen (%)', costBreakdown.profit.percentage.toFixed(1)],
+      ['PRECIO MENSUAL SIN IVA', costBreakdown.recommendedSellingPrice.toFixed(2)],
+      [`IVA ${(ECUADOR_LABOR_CONFIG.ivaRate * 100).toFixed(0)}%`, costBreakdown.ivaAmount.toFixed(2)],
+      ['PRECIO MENSUAL CON IVA', costBreakdown.priceWithIVA.toFixed(2)],
+      ['PRECIO UNITARIO SIN IVA (USD/m2)', unitEconomics.unitPricePerM2.toFixed(3)]
+    ];
+    const csvContent = '﻿' + rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `Cotizacion_${projectName.replace(/\s+/g, '_')}.csv`);
+    link.setAttribute('download', `Cotizacion_${projectName.replace(/[^\wÁÉÍÓÚáéíóúñÑ-]+/g, '_')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
-  const currentDate = new Date().toLocaleDateString('es-EC', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric'
-  });
+  const now = new Date();
+  const currentDate = now.toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' });
+  const quoteCode = `COT-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
 
   return (
     <div className="modal-overlay" id="proposal-modal-overlay">
@@ -88,15 +77,21 @@ export function ProposalPreviewModal({ result, projectName, onClose }) {
               <LucideIcon name="FileText" size={18} />
             </div>
             <div>
-              <h3 style={{ fontSize: '1.05rem', color: '#0f172a', fontWeight: 700 }}>Oferta Técnico-Financiera Oficial</h3>
-              <p style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                Documento ejecutivo listo para licitación, auditoría SERCOP y comité técnico
-              </p>
+              <h3 style={{ fontSize: '1.05rem', color: '#0f172a', fontWeight: 700 }}>Borrador de Oferta Técnico-Financiera</h3>
+              <p style={{ fontSize: '0.75rem', color: '#64748b' }}>Plantilla generada por el modelo; debe ser revisada y firmada por el proveedor</p>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '0.65rem' }}>
+          <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center' }}>
+            <input
+              type="text"
+              className="text-input"
+              placeholder="Razón social del proveedor"
+              value={providerName}
+              onChange={(e) => setProviderName(e.target.value)}
+              style={{ width: '210px', padding: '0.45rem 0.6rem' }}
+            />
             <button className="btn-secondary" onClick={handleExportCSV}>
-              <LucideIcon name="Download" size={14} /> Exportar CSV
+              <LucideIcon name="Download" size={14} /> CSV
             </button>
             <button className="btn-primary" onClick={handlePrint}>
               <LucideIcon name="Printer" size={14} /> Imprimir / PDF
@@ -108,201 +103,209 @@ export function ProposalPreviewModal({ result, projectName, onClose }) {
         </div>
 
         <div className="modal-body">
-          {/* THE TENDER DOCUMENT (Formatted for Screen & Print) */}
           <div className="tender-document" id="printable-tender-document">
-            {/* Header */}
             <div className="tender-header">
               <div className="tender-logo">
-                <h2>CLEANSERVICES FACILITY MANAGEMENT</h2>
-                <p>Soluciones Integrales de Higiene, Desinfección y Mantenimiento Corporativo</p>
-                <p style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                  Miembro de FEDELIMP • Proveedor Calificado SERCOP CPC 85330 • ISO 9001 / ISO 45001 / BPM
-                </p>
+                <h2>{provider}</h2>
+                <p>Servicio de limpieza y desinfección</p>
+                <p style={{ fontSize: '0.75rem', color: '#64748b' }}>RUC: [completar] • Certificaciones: [completar solo si el proveedor las posee]</p>
               </div>
               <div className="tender-meta">
-                <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '1.05rem' }}>
-                  PROPUESTA TÉCNICO-FINANCIERA
+                <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '1.05rem' }}>PROPUESTA TÉCNICO-FINANCIERA</div>
+                <div>
+                  Código: <strong>{quoteCode}</strong>
                 </div>
-                <div>Código: <strong>COT-2026-EC-{(inputs.areaM2 * 7).toString().slice(0, 5)}</strong></div>
-                <div>Código CPC SERCOP: <strong>{inputs.infrastructureType.cpcCode || '85330.00.1'}</strong></div>
-                <div>Fecha de Emisión: <strong>{currentDate}</strong></div>
-                <div>Validez de la Oferta: <strong>30 días calendario</strong></div>
+                <div>
+                  CPC de referencia: <strong>{reference.cpcCode}</strong>
+                </div>
+                <div>
+                  Fecha de emisión: <strong>{currentDate}</strong>
+                </div>
+                <div>
+                  Validez de la oferta: <strong>30 días calendario</strong>
+                </div>
               </div>
             </div>
 
-            {/* Customer & Scope */}
             <div className="tender-section">
               <h3>1. Información General del Servicio</h3>
               <div className="tender-grid">
                 <div>
-                  <p><strong>Cliente / Proyecto:</strong> {projectName}</p>
-                  <p><strong>Tipología Evaluada:</strong> {inputs.infrastructureType.name}</p>
-                  <p><strong>Área Contratada:</strong> {Number(inputs.areaM2).toLocaleString()} m²</p>
+                  <p>
+                    <strong>Cliente / Proyecto:</strong> {projectName}
+                  </p>
+                  <p>
+                    <strong>Tipología:</strong> {inputs.infrastructureType.name}
+                  </p>
+                  <p>
+                    <strong>Área contratada:</strong> {Number(inputs.areaM2).toLocaleString('es-EC')} m²
+                  </p>
                 </div>
                 <div>
-                  <p><strong>Nivel de Riesgo Sanitario:</strong> Nivel {inputs.sanitaryRiskLevel.level} ({inputs.sanitaryRiskLevel.label})</p>
-                  <p><strong>Régimen Operativo:</strong> {inputs.shiftRegime.label}</p>
-                  <p><strong>Intensidad de Tráfico:</strong> {inputs.trafficLevel.label}</p>
+                  <p>
+                    <strong>Riesgo sanitario:</strong> {inputs.sanitaryRiskLevel.label}
+                  </p>
+                  <p>
+                    <strong>Régimen operativo:</strong> {inputs.shiftRegime.label}
+                  </p>
+                  <p>
+                    <strong>Tráfico:</strong> {inputs.trafficLevel.label}
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Technical Specifications */}
             <div className="tender-section">
-              <h3>2. Especificaciones Técnicas y Bioseguridad</h3>
-              <p style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>
-                El servicio ha sido dimensionado bajo un <strong>modelo algorítmico paramétrico</strong> calibrado con las normativas del SERCOP y los protocolos del Ministerio de Salud Pública (MSP):
-              </p>
+              <h3>2. Especificaciones Técnicas</h3>
               <table className="tender-table">
                 <tbody>
                   <tr>
-                    <td style={{ width: '35%', fontWeight: 600 }}>Protocolo Químico Aplicado:</td>
+                    <td style={{ width: '35%', fontWeight: 600 }}>Protocolo aplicado:</td>
                     <td>{inputs.disinfectionProtocol.name}</td>
                   </tr>
                   <tr>
-                    <td style={{ fontWeight: 600 }}>Normativa Regulatoria:</td>
+                    <td style={{ fontWeight: 600 }}>Referencia normativa:</td>
                     <td>{inputs.disinfectionProtocol.normative}</td>
                   </tr>
                   <tr>
-                    <td style={{ fontWeight: 600 }}>Agentes Activos & Dilución:</td>
-                    <td>{inputs.disinfectionProtocol.chemicalProduct} (Tiempo de contacto: {inputs.disinfectionProtocol.contactTimeMinutes} min.)</td>
+                    <td style={{ fontWeight: 600 }}>Agentes y tiempo de contacto:</td>
+                    <td>
+                      {inputs.disinfectionProtocol.chemicalProduct} ({inputs.disinfectionProtocol.contactTimeMinutes} min)
+                    </td>
                   </tr>
                   <tr>
-                    <td style={{ fontWeight: 600 }}>Rendimiento Paramétrico:</td>
-                    <td>{yieldMetrics.effectiveYieldM2H.toFixed(1)} m²/hora (ajustado por riesgo microbiológico, tráfico y grado de mecanización)</td>
+                    <td style={{ fontWeight: 600 }}>Frecuencia de desinfección:</td>
+                    <td>{inputs.dailyFrequency} pasadas por día</td>
                   </tr>
                   <tr>
-                    <td style={{ fontWeight: 600 }}>Equipamiento Tecnológico:</td>
+                    <td style={{ fontWeight: 600 }}>Cobertura por auxiliar y turno:</td>
+                    <td>{Math.round(yieldMetrics.coverageM2PerPost).toLocaleString('es-EC')} m² (ajustada por riesgo, tráfico, protocolo, frecuencia y mecanización)</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: 600 }}>Equipamiento:</td>
                     <td>{inputs.machineryOption.label}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
 
-            {/* Staffing */}
             <div className="tender-section">
-              <h3>3. Cuadro de Asignación de Recursos Humanos (FTE)</h3>
+              <h3>3. Asignación de Personal</h3>
               <table className="tender-table">
                 <thead>
                   <tr>
-                    <th>Perfil Operativo</th>
-                    <th>Jornada / Horario</th>
-                    <th>Personal Asignado</th>
-                    <th>Carga Mensual</th>
+                    <th>Turno</th>
+                    <th>Puestos</th>
+                    <th>Horas nocturnas (Art. 49)</th>
+                    <th>Horas/semana</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td>Operario de Limpieza Diurno</td>
-                    <td>Turno Matutino / Vespertino</td>
-                    <td>{staffingMetrics.dayFTE.toFixed(1)} FTE</td>
-                    <td>{Math.round(staffingMetrics.dayFTE * staffingMetrics.effectiveHoursPerFTE)} horas</td>
-                  </tr>
-                  {staffingMetrics.nightFTE > 0 && (
-                    <tr>
-                      <td>Operario Técnico Nocturno (Recargo 25% Art. 49)</td>
-                      <td>Turno Nocturno / Madrugada</td>
-                      <td>{staffingMetrics.nightFTE.toFixed(1)} FTE</td>
-                      <td>{Math.round(staffingMetrics.nightFTE * staffingMetrics.effectiveHoursPerFTE)} horas</td>
+                  {staffingMetrics.shiftRows.map((r) => (
+                    <tr key={r.name}>
+                      <td>{r.name}</td>
+                      <td>{r.posts}</td>
+                      <td>{r.nocturnalHours} h/turno</td>
+                      <td>{r.weeklyHours.toFixed(0)} h</td>
                     </tr>
-                  )}
+                  ))}
                   <tr>
-                    <td>Supervisión Técnica & Relevos Legales</td>
-                    <td>Continuidad 100% Código de Trabajo</td>
-                    <td>Incluido en estructura</td>
-                    <td>Garantía de descanso semanal 48h</td>
+                    <td>Supervisión (1 por cada 25 auxiliares)</td>
+                    <td>{staffingMetrics.supervisors > 0 ? staffingMetrics.supervisors : 'Asumida por un auxiliar'}</td>
+                    <td colSpan="2">—</td>
                   </tr>
                   <tr style={{ fontWeight: 700, background: '#f8fafc' }}>
-                    <td colSpan="2">TOTAL FUERZA LABORAL CALIFICADA</td>
-                    <td>{staffingMetrics.assignedFTE.toFixed(1)} FTE</td>
-                    <td>{Math.round(yieldMetrics.monthlyRequiredHours)} horas/mes</td>
+                    <td>TOTAL PERSONAL (40 h/semana por persona)</td>
+                    <td colSpan="3">
+                      {staffingMetrics.assignedFTE.toFixed(2)} FTE • {Math.round(yieldMetrics.monthlyRequiredHours)} horas de cobertura/mes
+                    </td>
                   </tr>
                 </tbody>
               </table>
               <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.4rem' }}>
-                * Todo el personal cuenta con remuneración acorde a la Tabla Sectorial No. 19 del Ministerio del Trabajo ($721.09/mes diurno), afiliación inmediata al IESS, décimos mensualizados, fondos de reserva, seguro ocupacional y EPP certificado.
+                * Remuneración calculada sobre el SBU vigente (USD {inputs.sbu.toFixed(2)}) con aporte patronal IESS, décimos, {inputs.includeFondoReserva ? 'fondos de reserva, ' : ''}
+                vacaciones y recargo nocturno del 25% para horas entre 19h00 y 06h00. Costo empresa diurno: {formatUSD(staffingMetrics.unitDayLaborCost)}/mes.
               </p>
             </div>
 
-            {/* Pricing Summary */}
             <div className="tender-section">
-              <h3>4. Propuesta Económica y Costos Unitarios</h3>
+              <h3>4. Propuesta Económica</h3>
               <table className="tender-table">
                 <thead>
                   <tr>
-                    <th>Concepto Económico</th>
+                    <th>Concepto</th>
                     <th style={{ textAlign: 'right' }}>Valor Mensual (USD)</th>
-                    <th style={{ textAlign: 'right' }}>Valor Unitario (USD/m²)</th>
+                    <th style={{ textAlign: 'right' }}>USD/m²</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td>Costos Directos (Mano de Obra + Insumos Químicos + EPP + Equipamiento)</td>
+                    <td>Costos directos (mano de obra, insumos, EPP, equipos)</td>
                     <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(costBreakdown.totalDirectCost)}</td>
                     <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(costBreakdown.totalDirectCost / inputs.areaM2)}</td>
                   </tr>
                   <tr>
-                    <td>Gastos Indirectos, Logística y Supervisión Central ({inputs.indirectRate}%)</td>
+                    <td>Gastos indirectos ({inputs.indirectRate}%)</td>
                     <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(costBreakdown.indirect.amount)}</td>
                     <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(costBreakdown.indirect.amount / inputs.areaM2)}</td>
                   </tr>
-                  <tr style={{ background: '#f1f5f9', fontWeight: 600 }}>
-                    <td>Costo Técnico Operativo Total</td>
-                    <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(costBreakdown.totalCost)}</td>
-                    <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(unitEconomics.unitCostPerM2)}</td>
+                  <tr>
+                    <td>Utilidad</td>
+                    <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(costBreakdown.profit.amount)}</td>
+                    <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(costBreakdown.profit.amount / inputs.areaM2)}</td>
                   </tr>
-                  <tr style={{ background: '#ecfdf5', fontWeight: 800, color: '#065f46', fontSize: '1rem' }}>
-                    <td>PRECIO FINAL MENSUAL (Sin IVA)</td>
+                  <tr style={{ background: '#ecfdf5', fontWeight: 800, color: '#065f46' }}>
+                    <td>PRECIO MENSUAL SIN IVA</td>
                     <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(costBreakdown.recommendedSellingPrice)}</td>
                     <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(unitEconomics.unitPricePerM2)}</td>
                   </tr>
+                  <tr>
+                    <td>IVA {(ECUADOR_LABOR_CONFIG.ivaRate * 100).toFixed(0)}%</td>
+                    <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(costBreakdown.ivaAmount)}</td>
+                    <td></td>
+                  </tr>
+                  <tr style={{ fontWeight: 700 }}>
+                    <td>PRECIO MENSUAL CON IVA</td>
+                    <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatUSD(costBreakdown.priceWithIVA)}</td>
+                    <td></td>
+                  </tr>
                 </tbody>
               </table>
-              <div style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: '#475569', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <span>* Valores expresados en Dólares de los Estados Unidos de América (USD). No incluye IVA (15%).</span>
-                <span>Costo Hora Efectiva Operaria: <strong>{formatUSD(unitEconomics.pricePerHour)} /h</strong></span>
-              </div>
             </div>
 
-            {/* SERCOP Compliance Certificate */}
             <div className="tender-section" style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-              <h3 style={{ borderBottom: 'none', marginBottom: '0.5rem', color: '#0f172a', fontSize: '0.95rem' }}>
-                5. Certificación de Conformidad SERCOP (LOSNCP) & Tabla MDT
-              </h3>
+              <h3 style={{ borderBottom: 'none', marginBottom: '0.5rem', color: '#0f172a', fontSize: '0.95rem' }}>5. Comparación referencial con precios públicos</h3>
               <div style={{ fontSize: '0.8rem', color: '#334155', lineHeight: 1.5 }}>
                 <p>
-                  <strong>Clasificador Central de Productos (CPC):</strong> {sercopBenchmark?.cpcCode || '85330'} • <em>{inputs.infrastructureType.name}</em>
+                  <strong>Referencia:</strong> {reference.label}
                 </p>
                 <p>
-                  <strong>Banda Oficial de Referencia SERCOP:</strong> ${sercopBenchmark?.minRateM2?.toFixed(2)} a ${sercopBenchmark?.maxRateM2?.toFixed(2)} USD/m² mes (Promedio Oficial: ${sercopBenchmark?.avgRateM2?.toFixed(2)}/m²).
-                </p>
-                <p>
-                  <strong>Evaluación de Conformidad:</strong> La tarifa propuesta de <strong>{formatUSD(unitEconomics.unitPricePerM2)}/m²</strong> se encuentra {sercopBenchmark?.isInOfficialBand ? '100% dentro de la banda oficial acreditada en el portal de Compras Públicas del Ecuador' : 'técnicamente fundamentada bajo especificaciones de alta exigencia'}.
+                  <strong>Resultado:</strong> el precio propuesto de {formatUSD(unitEconomics.unitPricePerM2)}/m² está {reference.statusLabel.charAt(0).toLowerCase() + reference.statusLabel.slice(1)}.
                 </p>
                 <p style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: '#64748b' }}>
-                  Base legal: Ley Orgánica del Sistema Nacional de Contratación Pública (LOSNCP), Resoluciones SERCOP vigentes y Tabla Sectorial No. 19 del Ministerio del Trabajo de Ecuador.
+                  {reference.caveat} Esta comparación es informativa y no constituye una certificación del SERCOP.
+                </p>
+                <p style={{ marginTop: '0.25rem', fontSize: '0.72rem', color: '#64748b' }}>
+                  Fuentes: {reference.sourceKeys.map((k) => SOURCES[k].label).join(' • ')}
                 </p>
               </div>
             </div>
 
-            {/* Signatures */}
             <div className="tender-signatures">
               <div className="signature-box">
-                <strong>Ing. Analista de Costos y Licitaciones</strong>
-                <p>CleanServices Facility Management</p>
-                <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Firma y Sello Comercial</p>
+                <strong>Responsable de Costos</strong>
+                <p>{provider}</p>
+                <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Firma</p>
               </div>
-
               <div className="signature-box">
-                <strong>Dirección de Operaciones y Calidad</strong>
-                <p>Auditoría Microbiológica y Bioseguridad</p>
-                <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Aprobación Técnica</p>
+                <strong>Responsable de Operaciones</strong>
+                <p>{provider}</p>
+                <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Aprobación técnica</p>
               </div>
-
               <div className="signature-box">
-                <strong>Representante Legal / Cliente</strong>
+                <strong>Cliente</strong>
                 <p>{projectName}</p>
-                <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Aceptación de la Propuesta</p>
+                <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Aceptación de la propuesta</p>
               </div>
             </div>
           </div>

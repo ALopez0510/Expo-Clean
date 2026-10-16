@@ -5,14 +5,16 @@ import {
   SANITARY_RISK_LEVELS,
   DISINFECTION_PROTOCOLS,
   SHIFT_REGIMES,
-  MACHINERY_OPTIONS
+  MACHINERY_OPTIONS,
+  ECUADOR_LABOR_CONFIG
 } from '../data/parametricData';
 
-export function InputPanel({
-  formState,
-  onChangeField,
-  onTypologySelect
-}) {
+const hintStyle = { fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' };
+
+export function InputPanel({ formState, onChangeField, onTypologySelect, aiFields = [], aiSource = null }) {
+  const infra = INFRASTRUCTURE_TYPES[formState.infrastructureTypeId];
+  const protocol = DISINFECTION_PROTOCOLS[formState.disinfectionProtocolId];
+
   return (
     <aside className="glass-card input-section" id="parameters-input-panel">
       <div className="card-header">
@@ -22,6 +24,13 @@ export function InputPanel({
         </div>
         <span className="hackathon-badge">Entrada Dinámica</span>
       </div>
+
+      {aiFields && aiFields.length > 0 && (
+        <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', color: '#3730a3', padding: '0.55rem 0.7rem', borderRadius: '8px', fontSize: '0.75rem', lineHeight: 1.5 }}>
+          <strong>✦ {aiFields.length} parámetros completados desde el pliego</strong>
+          {aiSource?.provider === 'demo' ? ' (modo demo)' : aiSource?.model ? ` (Gemini ${aiSource.model})` : ''} y revisados por el analista. Puede ajustarlos libremente.
+        </div>
+      )}
 
       {/* 1. Nombre de Proyecto & Tipología */}
       <div className="form-group">
@@ -34,16 +43,14 @@ export function InputPanel({
           className="text-input"
           value={formState.projectName}
           onChange={(e) => onChangeField('projectName', e.target.value)}
-          placeholder="Ej. Clínica Pichincha - Pabellón Quirúrgico"
+          placeholder="Ej. Clínica - Pabellón Quirúrgico"
         />
       </div>
 
       <div className="form-group">
         <label className="form-label">
           Tipología de Infraestructura
-          <span className="label-value-badge">
-            {INFRASTRUCTURE_TYPES[formState.infrastructureTypeId]?.category}
-          </span>
+          <span className="label-value-badge">{infra?.category}</span>
         </label>
         <div className="typology-grid">
           {Object.values(INFRASTRUCTURE_TYPES).map((item) => {
@@ -61,14 +68,17 @@ export function InputPanel({
             );
           })}
         </div>
+        <p style={hintStyle}>
+          Rendimiento base: <strong>{infra?.baseYieldM2PerPost.toLocaleString('es-EC')} m² por auxiliar/turno</strong> — {infra?.yieldNote}
+        </p>
       </div>
 
-      {/* 2. Metraje Cuadrado Total */}
+      {/* 2. Metraje */}
       <div className="form-group">
         <div className="form-label">
           <label htmlFor="area-number-input">Área a Cubrir (Metraje Total)</label>
           <span className="label-value-badge" id="area-display-badge">
-            {Number(formState.areaM2).toLocaleString()} m²
+            {Number(formState.areaM2).toLocaleString('es-EC')} m²
           </span>
         </div>
         <div className="range-slider-wrapper">
@@ -79,14 +89,14 @@ export function InputPanel({
             max="12000"
             step="50"
             className="range-slider"
-            value={formState.areaM2}
+            value={Math.min(12000, formState.areaM2)}
             onChange={(e) => onChangeField('areaM2', Number(e.target.value))}
           />
           <input
             id="area-number-input"
             type="number"
             min="50"
-            max="50000"
+            max="200000"
             className="text-input"
             value={formState.areaM2}
             onChange={(e) => onChangeField('areaM2', Math.max(50, Number(e.target.value)))}
@@ -94,7 +104,7 @@ export function InputPanel({
         </div>
       </div>
 
-      {/* 3. Nivel de Riesgo Sanitario / Microbiológico */}
+      {/* 3. Riesgo sanitario */}
       <div className="form-group">
         <div className="form-label">
           <label htmlFor="risk-level-select">Riesgo Sanitario Microbiológico</label>
@@ -120,12 +130,10 @@ export function InputPanel({
             </option>
           ))}
         </select>
-        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-          {SANITARY_RISK_LEVELS[formState.sanitaryRiskLevelNumber]?.description}
-        </p>
+        <p style={hintStyle}>{SANITARY_RISK_LEVELS[formState.sanitaryRiskLevelNumber]?.description}</p>
       </div>
 
-      {/* 4. Tráfico Peatonal */}
+      {/* 4. Tráfico */}
       <div className="form-group">
         <label className="form-label" htmlFor="traffic-level-select">
           Tráfico Peatonal y Flujo Humano
@@ -144,7 +152,7 @@ export function InputPanel({
         </select>
       </div>
 
-      {/* 5. Régimen de Turnos (Código de Trabajo Ecuador) */}
+      {/* 5. Turnos */}
       <div className="form-group">
         <label className="form-label" htmlFor="shift-regime-select">
           Régimen Operativo y Turnos
@@ -161,12 +169,10 @@ export function InputPanel({
             </option>
           ))}
         </select>
-        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-          {SHIFT_REGIMES[formState.shiftRegimeId]?.description}
-        </p>
+        <p style={hintStyle}>{SHIFT_REGIMES[formState.shiftRegimeId]?.description}</p>
       </div>
 
-      {/* 6. Normativa y Protocolo de Desinfección */}
+      {/* 6. Protocolo y frecuencia */}
       <div className="form-group">
         <label className="form-label" htmlFor="disinfection-protocol-select">
           Normativa y Protocolo Químico
@@ -183,14 +189,36 @@ export function InputPanel({
             </option>
           ))}
         </select>
-        <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.5rem', borderRadius: '4px', fontSize: '0.75rem', color: '#cbd5e1' }}>
-          <strong>Producto:</strong> {DISINFECTION_PROTOCOLS[formState.disinfectionProtocolId]?.chemicalProduct}
+        <div style={{ background: '#f8fafc', border: '1px solid var(--border-subtle)', padding: '0.5rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', color: '#334155', lineHeight: 1.5 }}>
+          <strong>Producto:</strong> {protocol?.chemicalProduct}
           <br />
-          <strong>Tiempo contacto:</strong> {DISINFECTION_PROTOCOLS[formState.disinfectionProtocolId]?.contactTimeMinutes} min.
+          <strong>Referencia normativa:</strong> {protocol?.normative}
+          <br />
+          <strong>Tiempo de contacto:</strong> {protocol?.contactTimeMinutes} min (reduce el rendimiento ×{protocol?.yieldFactor.toFixed(2)})
         </div>
       </div>
 
-      {/* 7. Grado de Mecanización */}
+      <div className="form-group">
+        <div className="form-label">
+          <label htmlFor="frequency-input">Frecuencia de desinfección (pasadas/día)</label>
+          <span className="label-value-badge">{formState.dailyFrequency} / día</span>
+        </div>
+        <input
+          id="frequency-input"
+          type="range"
+          min="1"
+          max="6"
+          step="1"
+          className="range-slider"
+          value={formState.dailyFrequency}
+          onChange={(e) => onChangeField('dailyFrequency', Number(e.target.value))}
+        />
+        <p style={hintStyle}>
+          Por defecto para esta tipología: {infra?.defaultFrequency}. Cada pasada adicional suma ~20% de carga de trabajo (estimación del equipo).
+        </p>
+      </div>
+
+      {/* 7. Mecanización */}
       <div className="form-group">
         <label className="form-label" htmlFor="machinery-option-select">
           Equipamiento y Mecanización
@@ -203,13 +231,13 @@ export function InputPanel({
         >
           {Object.values(MACHINERY_OPTIONS).map((m) => (
             <option key={m.id} value={m.id}>
-              {m.label} (x{m.yieldMultiplier} rendimiento)
+              {m.label} (×{m.yieldMultiplier.toFixed(2)} rendimiento)
             </option>
           ))}
         </select>
       </div>
 
-      {/* 8. Parámetros Financieros (Margen & Gastos Indirectos) */}
+      {/* 8. Parámetros financieros */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-subtle)' }}>
         <div className="form-group">
           <div className="form-label">
@@ -230,7 +258,7 @@ export function InputPanel({
 
         <div className="form-group">
           <div className="form-label">
-            <label htmlFor="indirect-rate-slider">Costos Indirectos</label>
+            <label htmlFor="indirect-rate-slider">Gastos Indirectos</label>
             <span className="label-value-badge">{formState.indirectRate}%</span>
           </div>
           <input
@@ -245,6 +273,36 @@ export function InputPanel({
           />
         </div>
       </div>
+
+      {/* 9. Parámetros legales editables */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', alignItems: 'end' }}>
+        <div className="form-group">
+          <label className="form-label" htmlFor="sbu-input">
+            SBU vigente (USD)
+          </label>
+          <input
+            id="sbu-input"
+            type="number"
+            min="300"
+            max="2000"
+            step="1"
+            className="text-input"
+            value={formState.sbu}
+            onChange={(e) => onChangeField('sbu', Math.max(300, Number(e.target.value)))}
+          />
+        </div>
+        <label className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.45rem', fontSize: '0.78rem', color: '#334155', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={formState.includeFondoReserva}
+            onChange={(e) => onChangeField('includeFondoReserva', e.target.checked)}
+          />
+          Incluir fondos de reserva (contrato &gt; 1 año)
+        </label>
+      </div>
+      <p style={hintStyle}>
+        SBU 2026 oficial: USD {ECUADOR_LABOR_CONFIG.sbuBase.toFixed(2)}. Editable para actualizar el modelo cada año sin cambiar código.
+      </p>
     </aside>
   );
 }

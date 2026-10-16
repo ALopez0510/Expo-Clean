@@ -1,454 +1,437 @@
 /**
- * MATRICES PARAMÉTRICAS Y DATOS REALES DEL SECTOR DE FACILITY MANAGEMENT
- * CALIBRADO ESTRICTAMENTE CON FUENTES OFICIALES DEL SERVICIO NACIONAL DE CONTRATACIÓN PÚBLICA (SERCOP)
- * Y TABLAS DE SALARIOS MÍNIMOS SECTORIALES DEL MINISTERIO DEL TRABAJO (MDT) DE ECUADOR.
+ * MATRICES PARAMÉTRICAS — CleanQuote Pro (Expo Clean Ecuador 2026, Reto 2)
+ *
+ * Cada parámetro indica su TIPO DE FUENTE para evitar presentar estimaciones como datos oficiales:
+ *   - 'oficial'    : tomado textualmente de una fuente oficial (SERCOP, Código del Trabajo, MDT/IESS).
+ *   - 'contrato'   : valor de un contrato público adjudicado, reportado por fuente verificable.
+ *   - 'derivado'   : cálculo aritmético del equipo a partir de una fuente oficial (se explica la fórmula).
+ *   - 'estimacion' : supuesto del equipo, pendiente de validar con empresas del sector.
  */
 
-// Parámetros económicos y laborales oficiales de Ecuador (USD)
-export const ECUADOR_LABOR_CONFIG = {
-  sbuBase: 475.00, // Salario Básico Unificado / Comisión Sectorial No. 19 MDT Ecuador
-  iessPatronalRate: 0.1215, // 12.15% Aporte Patronal IESS
-  decimoTerceroRate: 1 / 12, // Décimo tercer sueldo mensualizado (8.33%)
-  decimoCuartoRate: 1 / 12, // Décimo cuarto sueldo mensualizado (1 SBU / 12)
-  fondoReservaRate: 0.0833, // 8.33% Fondos de reserva
-  vacacionesRate: 0.0416, // Provisión vacaciones anuales (15 días / año = 4.16%)
-  desahucioRate: 0.0208, // Provisión desahucio legal
-  uniformesEPPBase: 26.00, // Dotación reglamentaria de uniformes y calzado antideslizante
-  seguroCapacitacion: 14.00, // Exámenes médicos ocupacionales, seguro contra accidentes y capacitación
-  recargoNocturnoRate: 0.25, // 25% de recargo jornada nocturna (Art. 49 Código del Trabajo: 19:00 a 06:00)
-  horasMesPorOperario: 160, // 40 horas semanales x 4 semanas
-  factorEficienciaOEE: 0.85 // 85% de productividad efectiva (descuenta fatiga ergonómica, traslados y descansos de ley)
+// ─────────────────────────────────────────────────────────────────────────────
+// FUENTES VERIFICABLES (consultadas el 15-oct-2026)
+// ─────────────────────────────────────────────────────────────────────────────
+export const SOURCES = {
+  sbu2026: {
+    label: 'SBU 2026 = USD 482 (Ministerio del Trabajo, dic-2025)',
+    url: 'https://www.vistazo.com/2025-12-15-salario-basico-usd-482-2026-ecuador-incremento-dolares-IC10565269'
+  },
+  iess2026: {
+    label: 'Aporte patronal IESS 11,15% (+0,5% SECAP +0,5% IECE = 12,15%)',
+    url: 'https://www.vistazo.com/actualidad/nacional/2025-12-17-aportes-iess-suben-2026-incremento-sueldo-basico-unificado-usd-482-ED10575274'
+  },
+  nocturno: {
+    label: 'Código del Trabajo Art. 49: jornada nocturna 19h00–06h00, recargo 25%',
+    url: 'https://www.eldiario.ec/ecuador/esto-deben-pagarte-por-cumplir-jornada-de-trabajo-nocturna-en-ecuador-segun-el-codigo-del-trabajo-25022026/'
+  },
+  fichaAreaInterna: {
+    label: 'SERCOP Ficha Técnica "Servicio de limpieza de áreas internas de edificaciones" (CPC 853300013), 2023',
+    url: 'https://portal.compraspublicas.gob.ec/sercop/wp-content/uploads/2023/03/3_LIMPIEZA-AREA-INTERNA.pdf'
+  },
+  fichaAltaAfluencia: {
+    label: 'SERCOP Ficha Técnica "Limpieza en edificaciones con áreas de alta afluencia de usuarios" (CPC 853300012), 2023',
+    url: 'https://portal.compraspublicas.gob.ec/sercop/wp-content/uploads/2023/03/2_ALTA-AFLUENCIA-USUARIO.pdf'
+  },
+  fichaEducativas: {
+    label: 'SERCOP Ficha Técnica "Servicio de limpieza de instituciones educativas" (CPC 853300011), 2023',
+    url: 'https://portal.compraspublicas.gob.ec/sercop/wp-content/uploads/2023/03/1_UNIDADES-EDUCATIVAS.pdf'
+  },
+  fichaAreaExterna: {
+    label: 'SERCOP Ficha Técnica "Servicio de limpieza de áreas externas de edificaciones", 2023',
+    url: 'https://portal.compraspublicas.gob.ec/sercop/wp-content/uploads/2023/03/4_LIMPIEZA-AREA-EXTERNA.pdf'
+  },
+  fichaHospitalaria8h: {
+    label: 'SERCOP Ficha Técnica "Limpieza hospitalaria 8 horas" (CPC 853300311): USD 2,06/m² por turno de 8h (sin fecha, aprox. 2016-2017)',
+    url: 'https://portal.compraspublicas.gob.ec/sercop/wp-content/uploads/2017/01/limpieza_hospitalaria_8_horas1.pdf'
+  },
+  contratosIESS: {
+    label: 'Primicias (29-dic-2025): contratos de limpieza H. Teodoro Maldonado Carbo, HCAM y H. Verdi Cevallos',
+    url: 'https://www.primicias.ec/sociedad/contrato-limpieza-hospital-iess-teodoro-maldonado-carbo-costo-quito-portoviejo-guayaquil-112602/'
+  }
 };
 
-// Tipologías de infraestructura calibradas con Pliegos Oficiales y Catálogo SERCOP (CPC 85330)
+// ─────────────────────────────────────────────────────────────────────────────
+// PARÁMETROS LABORALES ECUADOR 2026 (USD)
+// ─────────────────────────────────────────────────────────────────────────────
+export const ECUADOR_LABOR_CONFIG = {
+  sbuBase: 482.0, // oficial — SBU 2026
+  iessPatronalRate: 0.1215, // oficial — 11,15% IESS + 0,5% SECAP + 0,5% IECE
+  decimoTerceroRate: 1 / 12, // oficial — 1 remuneración anual, mensualizada
+  decimoCuartoRate: 1 / 12, // oficial — 1 SBU anual, mensualizado
+  fondoReservaRate: 0.0833, // oficial — aplica desde el 2º año de servicio (supuesto: contrato plurianual)
+  vacacionesRate: 1 / 24, // oficial — 15 días/año = 4,17%
+  desahucioRate: 0.0208, // estimación — provisión del 25% por año de servicio (25%/12)
+  uniformesEPPBase: 26.0, // estimación — dotación de uniforme y calzado
+  seguroCapacitacion: 14.0, // estimación — exámenes ocupacionales y capacitación
+  recargoNocturnoRate: 0.25, // oficial — Art. 49 Código del Trabajo (19h00–06h00)
+  horasSemanalesLegales: 40, // oficial — jornada máxima ordinaria
+  vacationReliefFactor: 365 / (365 - 15), // derivado — reemplazo de vacaciones en servicios de 7 días
+  supervisorRatio: 25, // oficial — fichas SERCOP: 1 supervisor por cada 25 auxiliares
+  supervisorMinStaff: 5, // oficial — fichas SERCOP: hasta 5 auxiliares, uno de ellos supervisa
+  supervisorSalaryMultiplier: 1.25, // estimación — remuneración del supervisor vs auxiliar
+  ivaRate: 0.15 // oficial — IVA vigente
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TIPOLOGÍAS DE INFRAESTRUCTURA
+// baseYieldM2PerPost: m² que cubre 1 auxiliar por turno de 8h en las condiciones por defecto
+// de la tipología (riesgo, tráfico, protocolo y frecuencia por defecto).
+// ─────────────────────────────────────────────────────────────────────────────
 export const INFRASTRUCTURE_TYPES = {
   hospital_critical: {
     id: 'hospital_critical',
     name: 'Área Crítica Hospitalaria (Quirófanos / UCI / Aislamiento)',
     category: 'Salud & Bioseguridad',
     iconName: 'Hospital',
-    normativeYieldM2PerFTE: 500, // Cobertura normada por operario en áreas críticas 24h
-    baseYieldM2H: 75, // Rendimiento de desinfección profunda en m²/hora
+    baseYieldM2PerPost: 500,
+    yieldSourceType: 'estimacion',
+    yieldNote: 'Estimación del equipo: ~70% del rendimiento derivado de la ficha hospitalaria SERCOP (700 m²/auxiliar por turno) por mayor exigencia en áreas críticas.',
     defaultRiskLevel: 5,
     defaultTraffic: 'medium',
     defaultProtocol: 'hospital_grade',
-    defaultFrequency: 3, // Concurrente, terminal y repaso quirúrgico
-    chemicalBaseCostM2: 0.35, // Peróxido de hidrógeno acelerado (AHP), amonio 5ta gen Lista N EPA y paños microfibra descartables
-    eppCostPerFTE: 45.00, // EPP biológico nivel 3 (Tyvek, N95, nitrilo de alta resistencia, pantalla facial)
-    supervisionMultiplier: 1.15, // Supervisión clínica y control microbiológico continuo
-    sercopReference: {
-      source: 'Ficha Técnica Base SERCOP - Unidades Hospitalarias de Alta Complejidad 24 Horas (compraspublicas.gob.ec)',
-      cpcCode: '85330.01.1',
-      minRateM2: 4.50,
-      maxRateM2: 5.25,
-      avgRateM2: 4.88,
-      privateMarketRate: '$4.20 - $5.50 /m²',
-      normativeYield: 'Hasta 250 - 320 m² por operario en jornada 24/7',
-      notes: 'Pliegos oficiales con cobertura continua 24/7, recargos nocturnos, EPP biológico y desinfectantes aprobados por MSP/CDC.'
+    defaultShift: 'continuous_24_7',
+    defaultFrequency: 3,
+    secondaryShiftRatio: 1.0, // estimación — áreas críticas mantienen la misma dotación en todos los turnos
+    chemicalBaseCostM2: 0.35, // estimación
+    eppCostPerFTE: 45.0, // estimación
+    reference: {
+      kind: 'derivado',
+      cpcCode: '853300311',
+      priceM2: 6.18,
+      label: 'Referencia derivada: ficha SERCOP limpieza hospitalaria USD 2,06/m² por turno de 8h × 3 turnos',
+      caveat: 'Ficha sin fecha (aprox. 2016-2017, SBU de esa época). No existe ficha SERCOP específica para áreas críticas 24/7: es una referencia aproximada.',
+      sourceKeys: ['fichaHospitalaria8h']
     }
   },
   general_healthcare: {
     id: 'general_healthcare',
-    name: 'Hospitalización General & Clínicas Ambulatorias (IESS / MSP)',
+    name: 'Hospitalización General & Clínicas (IESS / MSP)',
     category: 'Salud & Bioseguridad',
     iconName: 'Activity',
-    cpcCode: '85330.01.2',
-    description: 'Salas de hospitalización, consultorios médicos, emergencia, laboratorios clínicos y pasillos sanitarios.',
-    normativeYieldM2PerFTE: 850,
-    baseYieldM2H: 120,
+    baseYieldM2PerPost: 1000,
+    yieldSourceType: 'estimacion',
+    yieldNote: 'Estimación del equipo calibrada con contratos IESS 2024-2025 (la ficha SERCOP de 8h fija un mínimo de 2 auxiliares hasta 1.400 m²).',
     defaultRiskLevel: 4,
     defaultTraffic: 'high',
     defaultProtocol: 'clinical_intermediate',
+    defaultShift: 'continuous_24_7',
     defaultFrequency: 2,
+    secondaryShiftRatio: 0.5, // estimación — turnos de tarde/noche con 50% de la dotación diurna
     chemicalBaseCostM2: 0.22,
-    eppCostPerFTE: 30.00,
-    supervisionMultiplier: 1.10,
-    sercopReference: {
-      source: 'Contratos Adjudicados SERCOP: Hospital Teodoro Maldonado Carbo ($3,03-$3,21/m²), Hospital Verdi Cevallos ($2,86/m²), HCAM ($1,84/m²)',
-      cpcCode: '85330.01.2',
-      minRateM2: 1.84,
-      maxRateM2: 3.21,
-      avgRateM2: 2.75,
-      privateMarketRate: '$2.50 - $3.40 /m²',
-      normativeYield: '600 - 850 m² por operario con rotación de turnos',
-      notes: 'Valores ponderados de contratos adjudicados en IESS y MSP para edificios hospitalarios completos.'
+    eppCostPerFTE: 30.0,
+    reference: {
+      kind: 'contratos',
+      cpcCode: '853300311',
+      minPriceM2: 1.84,
+      maxPriceM2: 3.03,
+      priceM2: 2.58,
+      label: 'Contratos adjudicados IESS: HCAM USD 1,84/m² (2025) • Verdi Cevallos USD 2,86/m² (2024) • Teodoro Maldonado Carbo USD 3,03/m² (2025)',
+      caveat: 'Contratos de hospitales completos (37.000 a 112.000 m², incluyen áreas no críticas). Promedio simple USD 2,58/m².',
+      contracts: [
+        { name: 'Hospital Carlos Andrade Marín (Quito)', priceM2: 1.84, areaM2: 112228, date: 'sep-2025' },
+        { name: 'Hospital Verdi Cevallos Balda (Portoviejo)', priceM2: 2.86, areaM2: 37587, date: 'jun-2024' },
+        { name: 'Hospital Teodoro Maldonado Carbo (Guayaquil)', priceM2: 3.03, areaM2: 60418, date: 'ene-2025' }
+      ],
+      sourceKeys: ['contratosIESS', 'fichaHospitalaria8h']
     }
   },
   food_court_retail: {
     id: 'food_court_retail',
-    name: 'Patio de Comidas & Retail Masivo (Centros Comerciales)',
-    category: 'Comercial & Alimentos',
+    name: 'Patio de Comidas & Áreas de Alta Afluencia',
+    category: 'Comercial & Alto Tráfico',
     iconName: 'UtensilsCrossed',
-    cpcCode: '85330.02.1',
-    description: 'Zonas de alto tráfico peatonal continuo, mesas de rotación rápida, grasas orgánicas y residuos alimenticios húmedos.',
-    normativeYieldM2PerFTE: 720,
-    baseYieldM2H: 160,
+    baseYieldM2PerPost: 650,
+    yieldSourceType: 'oficial',
+    yieldNote: 'Ficha SERCOP alta afluencia de usuarios: 650 m² por auxiliar.',
     defaultRiskLevel: 3,
     defaultTraffic: 'extreme',
     defaultProtocol: 'food_safe',
+    defaultShift: 'extended_16h_7d',
     defaultFrequency: 2,
+    secondaryShiftRatio: 1.0,
     chemicalBaseCostM2: 0.18,
-    eppCostPerFTE: 20.00,
-    supervisionMultiplier: 1.08,
-    sercopReference: {
-      source: 'FISP-SERCOP Catálogo Dinámico Inclusivo - Áreas de Alto Tráfico Peatonal y Terminales',
-      cpcCode: '85330.02.1',
-      minRateM2: 2.04,
-      maxRateM2: 2.85,
-      avgRateM2: 2.38,
-      privateMarketRate: '$2.10 - $2.90 /m²',
-      normativeYield: '500 - 650 m² por operario en horario extendido',
-      notes: 'Jornadas extendidas de 14 a 16 horas diarias, rotación continua y desengrasantes certificados BPM / ARCSA.'
+    eppCostPerFTE: 20.0,
+    reference: {
+      kind: 'catalogo',
+      cpcCode: '853300012',
+      priceM2: 2.04,
+      label: 'Catálogo SERCOP: limpieza en edificaciones con alta afluencia de usuarios, USD 2,04/m² (jornada 40h/sem)',
+      caveat: 'Referencia análoga: la ficha aplica a edificios públicos de atención al usuario en jornada de 40h; un patio de comidas 7 días/16h requiere más personal.',
+      sourceKeys: ['fichaAltaAfluencia']
     }
   },
   corporate_office: {
     id: 'corporate_office',
-    name: 'Oficinas Administrativas & Edificios Públicos / Corporativos',
+    name: 'Oficinas Administrativas & Edificios Públicos',
     category: 'Corporativo & Administrativo',
     iconName: 'Building2',
-    cpcCode: '85330.00.1',
-    description: 'Edificios gubernamentales, ministerios, salas de reuniones y puestos de trabajo con bajo riesgo biológico.',
-    normativeYieldM2PerFTE: 900, // Norma técnica oficial de la Ficha SERCOP Catálogo Inclusivo
-    baseYieldM2H: 220,
+    baseYieldM2PerPost: 900,
+    yieldSourceType: 'oficial',
+    yieldNote: 'Ficha SERCOP áreas internas: 900 m² por auxiliar.',
     defaultRiskLevel: 1,
     defaultTraffic: 'low',
     defaultProtocol: 'standard',
+    defaultShift: 'diurno_5d',
     defaultFrequency: 1,
+    secondaryShiftRatio: 1.0,
     chemicalBaseCostM2: 0.08,
-    eppCostPerFTE: 16.00,
-    supervisionMultiplier: 1.05,
-    sercopReference: {
-      source: 'Ficha Técnica FISP-SERCOP Catálogo Dinámico Inclusivo - Limpieza General de Inmuebles',
-      cpcCode: '85330.00.1',
-      minRateM2: 0.91,
-      maxRateM2: 1.21,
-      avgRateM2: 1.06,
-      privateMarketRate: '$1.15 - $1.45 /m²',
-      normativeYield: '630 m² a 900 m² por trabajador/día en jornada ordinaria de 40 horas',
-      notes: 'Precio base de catálogo $0.91/m²; con consumibles de aseo, insumos completos y supervisión se sitúa en $1.06 - $1.21/m².'
+    eppCostPerFTE: 16.0,
+    reference: {
+      kind: 'catalogo',
+      cpcCode: '853300013',
+      priceM2: 1.58,
+      label: 'Catálogo SERCOP: limpieza de áreas internas de edificaciones, USD 1,58/m² (sin IVA)',
+      caveat: 'No incluye suministros de baño (papel, jabón), que adquiere la entidad. Ficha de 2023: verificar si el precio fue actualizado.',
+      sourceKeys: ['fichaAreaInterna']
     }
   },
   industrial_logistics: {
     id: 'industrial_logistics',
-    name: 'Plantas Industriales & Bodegas Logísticas',
+    name: 'Plantas Industriales, Bodegas & Áreas Externas',
     category: 'Industrial',
     iconName: 'Factory',
-    cpcCode: '85330.03.1',
-    description: 'Grandes extensiones de piso de hormigón, tránsito de montacargas, polvo industrial y residuos operativos mecanizados.',
-    normativeYieldM2PerFTE: 2400, // Rendimiento asistido por barredora/fregadora industrial
-    baseYieldM2H: 550,
+    baseYieldM2PerPost: 2500,
+    yieldSourceType: 'oficial',
+    yieldNote: 'Ficha SERCOP áreas externas: 2.500 m² por auxiliar (referencia análoga para grandes superficies).',
     defaultRiskLevel: 2,
     defaultTraffic: 'medium',
     defaultProtocol: 'industrial_degreaser',
+    defaultShift: 'diurno_6d',
     defaultFrequency: 1,
-    chemicalBaseCostM2: 0.10,
-    eppCostPerFTE: 26.00,
-    supervisionMultiplier: 1.08,
-    sercopReference: {
-      source: 'Pliegos SERCOP EP Petroecuador, CELEC EP y Almacenes Centrales',
-      cpcCode: '85330.03.1',
-      minRateM2: 0.65,
-      maxRateM2: 0.92,
-      avgRateM2: 0.78,
-      privateMarketRate: '$0.70 - $0.95 /m²',
-      normativeYield: '2.000 a 2.500 m² por operario asistido por maquinaria pesada',
-      notes: 'Alta productividad asistida por barredoras y fregadoras industriales de conductor a bordo.'
+    secondaryShiftRatio: 1.0,
+    chemicalBaseCostM2: 0.1,
+    eppCostPerFTE: 26.0,
+    reference: {
+      kind: 'catalogo',
+      cpcCode: '853300013',
+      priceM2: 0.64,
+      label: 'Catálogo SERCOP: limpieza de áreas externas de edificaciones, USD 0,64/m²',
+      caveat: 'Referencia análoga: no existe ficha SERCOP específica para naves industriales.',
+      sourceKeys: ['fichaAreaExterna']
     }
   },
   educational_campus: {
     id: 'educational_campus',
-    name: 'Centros Educativos & Universidades Públicas',
+    name: 'Centros Educativos & Universidades',
     category: 'Institucional & Educación',
     iconName: 'GraduationCap',
-    cpcCode: '85330.00.2',
-    description: 'Aulas magnas, pasillos de alto flujo en recesos, bibliotecas y baterías sanitarias escolares.',
-    normativeYieldM2PerFTE: 1250,
-    baseYieldM2H: 260,
+    baseYieldM2PerPost: 1000,
+    yieldSourceType: 'oficial',
+    yieldNote: 'Ficha SERCOP instituciones educativas: 1.000 m² por auxiliar.',
     defaultRiskLevel: 2,
     defaultTraffic: 'high',
     defaultProtocol: 'standard',
+    defaultShift: 'diurno_5d',
     defaultFrequency: 1,
+    secondaryShiftRatio: 1.0,
     chemicalBaseCostM2: 0.08,
-    eppCostPerFTE: 18.00,
-    supervisionMultiplier: 1.05,
-    sercopReference: {
-      source: 'Procesos SERCOP: Universidad Central del Ecuador (UCE), EPN, UNACH',
-      cpcCode: '85330.00.2',
-      minRateM2: 0.85,
-      maxRateM2: 1.18,
-      avgRateM2: 1.02,
-      privateMarketRate: '$0.95 - $1.25 /m²',
-      normativeYield: '1.000 a 1.200 m² por operario con refuerzos en recesos',
-      notes: 'Jornadas diurnas de lunes a sábado con rotación de limpieza en aulas y baterías sanitarias.'
+    eppCostPerFTE: 18.0,
+    reference: {
+      kind: 'catalogo',
+      cpcCode: '853300011',
+      priceM2: 1.19,
+      label: 'Catálogo SERCOP: limpieza de instituciones educativas, USD 1,19/m² (sin IVA)',
+      caveat: 'Ficha de 2023: verificar si el precio fue actualizado.',
+      sourceKeys: ['fichaEducativas']
     }
   }
 };
 
-// Matriz Comparativa Oficial SERCOP Multi-Sector
-export const SERCOP_SECTOR_BENCHMARKS = [
-  {
-    sector: 'Salud Crítica (Quirófanos / UCI 24/7)',
-    cpcCode: '85330.01.1',
-    sercopMin: 4.50,
-    sercopMax: 5.25,
-    sercopAvg: 4.88,
-    privateRate: '$4.50 - $5.50',
-    normativeYield: '250 - 320 m²/FTE',
-    officialContractRef: 'Ficha Nacional Hospitalaria 24h / MSP Ecuador',
-    riskLevel: 'Crítico (Nivel 5)'
-  },
-  {
-    sector: 'Hospitales Generales (IESS / MSP)',
-    cpcCode: '85330.01.2',
-    sercopMin: 1.84,
-    sercopMax: 3.21,
-    sercopAvg: 2.75,
-    privateRate: '$2.50 - $3.40',
-    normativeYield: '600 - 700 m²/FTE',
-    officialContractRef: 'H. Teodoro Maldonado ($3,12/m²) • H. Verdi Cevallos ($2,86/m²) • HCAM ($1,84/m²)',
-    riskLevel: 'Alto (Nivel 4)'
-  },
-  {
-    sector: 'Retail & Patios de Comida',
-    cpcCode: '85330.02.1',
-    sercopMin: 2.04,
-    sercopMax: 2.85,
-    sercopAvg: 2.38,
-    privateRate: '$2.10 - $2.90',
-    normativeYield: '500 - 650 m²/FTE',
-    officialContractRef: 'FISP Áreas de Alto Tráfico y Terminales Terrestres',
-    riskLevel: 'Medio (Nivel 3)'
-  },
-  {
-    sector: 'Oficinas Administrativas & Edificios Públicos',
-    cpcCode: '85330.00.1',
-    sercopMin: 0.91,
-    sercopMax: 1.21,
-    sercopAvg: 1.06,
-    privateRate: '$1.15 - $1.45',
-    normativeYield: '630 - 900 m²/FTE',
-    officialContractRef: 'Ficha Técnica FISP-SERCOP Catálogo Dinámico Inclusivo',
-    riskLevel: 'Mínimo (Nivel 1)'
-  },
-  {
-    sector: 'Industria & Bodegas Logísticas',
-    cpcCode: '85330.03.1',
-    sercopMin: 0.65,
-    sercopMax: 0.92,
-    sercopAvg: 0.78,
-    privateRate: '$0.70 - $0.95',
-    normativeYield: '2.000 - 2.500 m²/FTE',
-    officialContractRef: 'Pliegos CELEC EP / EP Petroecuador Naves Industriales',
-    riskLevel: 'Bajo (Nivel 2)'
-  },
-  {
-    sector: 'Educación & Universidades Públicas',
-    cpcCode: '85330.00.2',
-    sercopMin: 0.85,
-    sercopMax: 1.18,
-    sercopAvg: 1.02,
-    privateRate: '$0.95 - $1.25',
-    normativeYield: '1.000 - 1.200 m²/FTE',
-    officialContractRef: 'Licitaciones UCE, EPN, UNACH Campus Universitarios',
-    riskLevel: 'Bajo (Nivel 2)'
-  }
-];
+// Tabla de referencias construida desde las tipologías (una sola fuente de verdad)
+export const REFERENCE_TABLE = Object.values(INFRASTRUCTURE_TYPES).map((t) => ({
+  id: t.id,
+  sector: t.name,
+  cpcCode: t.reference.cpcCode,
+  kind: t.reference.kind,
+  priceM2: t.reference.priceM2,
+  minPriceM2: t.reference.minPriceM2,
+  maxPriceM2: t.reference.maxPriceM2,
+  yieldM2: t.baseYieldM2PerPost,
+  yieldSourceType: t.yieldSourceType,
+  label: t.reference.label
+}));
 
-// Niveles de Tráfico Peatonal
+export const SOURCE_TYPE_LABELS = {
+  oficial: { label: 'Oficial', color: '#059669', bg: '#ecfdf5' },
+  contrato: { label: 'Contrato real', color: '#0284c7', bg: '#eff6ff' },
+  contratos: { label: 'Contratos reales', color: '#0284c7', bg: '#eff6ff' },
+  catalogo: { label: 'Catálogo SERCOP', color: '#059669', bg: '#ecfdf5' },
+  derivado: { label: 'Derivado', color: '#7c3aed', bg: '#f5f3ff' },
+  estimacion: { label: 'Estimación del equipo', color: '#d97706', bg: '#fffbeb' }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FACTORES OPERATIVOS (estimaciones del equipo). Se aplican de forma RELATIVA al valor
+// por defecto de cada tipología, para que en condiciones por defecto el rendimiento
+// sea exactamente el de la ficha / referencia.
+// ─────────────────────────────────────────────────────────────────────────────
 export const TRAFFIC_LEVELS = {
-  low: {
-    id: 'low',
-    label: 'Bajo (< 25 personas/hora)',
-    factor: 0.95,
-    description: 'Flujo mínimo o restringido. Baja tasa de reensuciamiento.'
-  },
-  medium: {
-    id: 'medium',
-    label: 'Medio (25 - 100 personas/hora)',
-    factor: 1.00,
-    description: 'Flujo constante pero ordenado. Requiere repaso intermedio de áreas comunes.'
-  },
-  high: {
-    id: 'high',
-    label: 'Alto (100 - 300 personas/hora)',
-    factor: 1.12,
-    description: 'Congestión periódica y picos de suciedad (entradas, corredores principales).'
-  },
-  extreme: {
-    id: 'extreme',
-    label: 'Extremo / Continuo (> 300 personas/hora)',
-    factor: 1.25,
-    description: 'Tránsito masivo ininterrumpido. Reensuciamiento acelerado de pisos y papeleras.'
-  }
+  low: { id: 'low', label: 'Bajo (< 25 personas/hora)', factor: 0.95, description: 'Flujo mínimo o restringido. Baja tasa de reensuciamiento.' },
+  medium: { id: 'medium', label: 'Medio (25 - 100 personas/hora)', factor: 1.0, description: 'Flujo constante pero ordenado.' },
+  high: { id: 'high', label: 'Alto (100 - 300 personas/hora)', factor: 1.12, description: 'Congestión periódica y picos de suciedad.' },
+  extreme: { id: 'extreme', label: 'Extremo / Continuo (> 300 personas/hora)', factor: 1.25, description: 'Tránsito masivo ininterrumpido.' }
 };
 
-// Niveles de Riesgo Sanitario / Microbiológico
 export const SANITARY_RISK_LEVELS = {
-  1: {
-    level: 1,
-    label: 'Nivel 1 — Mínimo (Espacios secos generales)',
-    factor: 0.95,
-    description: 'Sin presencia de patógenos específicos. Polvo común y residuos de oficina.',
-    color: '#059669'
-  },
-  2: {
-    level: 2,
-    label: 'Nivel 2 — Bajo (Tránsito general institucional)',
-    factor: 1.00,
-    description: 'Contacto de superficies públicas. Prevención básica de virus estacionales.',
-    color: '#0284c7'
-  },
-  3: {
-    level: 3,
-    label: 'Nivel 3 — Medio (Manipulación de alimentos / Sanitarios)',
-    factor: 1.10,
-    description: 'Riesgo de bacterias entéricas, residuos orgánicos húmedos, coliformes.',
-    color: '#d97706'
-  },
-  4: {
-    level: 4,
-    label: 'Nivel 4 — Alto (Áreas asistenciales / Laboratorios)',
-    factor: 1.20,
-    description: 'Exposición a fluidos corporales, bacterias patógenas, salas de internación.',
-    color: '#ea580c'
-  },
-  5: {
-    level: 5,
-    label: 'Nivel 5 — Crítico (Quirófanos / UCI / Esterilización)',
-    factor: 1.35,
-    description: 'Riesgo vital microbiológico. Cero tolerancia a esporas y bacterias nosocomiales multirresistentes.',
-    color: '#dc2626'
-  }
+  1: { level: 1, label: 'Nivel 1 — Mínimo (Espacios secos generales)', factor: 0.95, description: 'Polvo común y residuos de oficina.', color: '#059669' },
+  2: { level: 2, label: 'Nivel 2 — Bajo (Tránsito general institucional)', factor: 1.0, description: 'Contacto de superficies públicas.', color: '#0284c7' },
+  3: { level: 3, label: 'Nivel 3 — Medio (Alimentos / Sanitarios)', factor: 1.1, description: 'Residuos orgánicos húmedos y baterías sanitarias.', color: '#d97706' },
+  4: { level: 4, label: 'Nivel 4 — Alto (Áreas asistenciales / Laboratorios)', factor: 1.2, description: 'Exposición a fluidos corporales, salas de internación.', color: '#ea580c' },
+  5: { level: 5, label: 'Nivel 5 — Crítico (Quirófanos / UCI / Esterilización)', factor: 1.35, description: 'Áreas críticas con desinfección terminal.', color: '#dc2626' }
 };
 
-// Protocolos y Normativas de Desinfección
 export const DISINFECTION_PROTOCOLS = {
   standard: {
     id: 'standard',
-    name: 'Protocolo Estándar (Limpieza y Aromatización)',
-    normative: 'Norma Técnica INEN de Limpieza Institucional',
-    chemicalProduct: 'Detergente Neutro biodegradable + Sanitizante de Superficies',
+    name: 'Protocolo Estándar (Limpieza general)',
+    normative: 'Especificaciones de fichas SERCOP (insumos con registro sanitario o sello INEN)',
+    chemicalProduct: 'Detergente neutro biodegradable + desinfectante de superficies',
     contactTimeMinutes: 2,
     costMultiplier: 1.0,
-    description: 'Mantenimiento diario de superficies sin desinfección profunda.'
+    yieldFactor: 1.0,
+    description: 'Mantenimiento diario de superficies.'
   },
   food_safe: {
     id: 'food_safe',
-    name: 'Protocolo Grado Alimentario (BPM / HACCP)',
-    normative: 'Codex Alimentarius & BPM ARCSA',
-    chemicalProduct: 'Desengrasante Alcalino concentrado + Cuaternario 5ta gen sin enjuague (200 ppm)',
+    name: 'Protocolo Grado Alimentario (BPM)',
+    normative: 'Buenas Prácticas de Manufactura (ARCSA)',
+    chemicalProduct: 'Desengrasante alcalino + desinfectante apto para contacto con alimentos',
     contactTimeMinutes: 5,
     costMultiplier: 1.15,
-    description: 'Desengrase intensivo y desinfección bactericida apta para contacto con alimentos.'
+    yieldFactor: 0.95,
+    description: 'Desengrase y desinfección de superficies en contacto con alimentos.'
   },
   clinical_intermediate: {
     id: 'clinical_intermediate',
     name: 'Desinfección Clínica Nivel Intermedio',
-    normative: 'Manual de Bioseguridad MSP Ecuador / CDC',
-    chemicalProduct: 'Hipoclorito de Sodio estabilizado (1000 ppm) + Amonio Cuaternario 4ta Gen',
+    normative: 'Normativa de bioseguridad del MSP para establecimientos de salud',
+    chemicalProduct: 'Hipoclorito de sodio en dilución indicada + amonio cuaternario',
     contactTimeMinutes: 8,
     costMultiplier: 1.25,
-    description: 'Acción virucida, bactericida y fungicida para áreas clínicas generales.'
+    yieldFactor: 0.9,
+    description: 'Áreas clínicas generales.'
   },
   hospital_grade: {
     id: 'hospital_grade',
-    name: 'Desinfección Terminal Quirúrgica de Alto Nivel',
-    normative: 'Protocolo Quirúrgico Hospitalario / Lista N de EPA',
-    chemicalProduct: 'Peróxido de Hidrógeno Acelerado (AHP) + Amonio Cuaternario 5ta Gen grado hospitalario',
+    name: 'Desinfección Terminal de Alto Nivel (áreas críticas)',
+    normative: 'Normativa de bioseguridad del MSP para áreas críticas',
+    chemicalProduct: 'Peróxido de hidrógeno acelerado + amonio cuaternario grado hospitalario',
     contactTimeMinutes: 12,
-    costMultiplier: 1.40,
-    description: 'Acción esporicida y micobactericida con tiempo de contacto certificado y paños microfibra descartables.'
+    costMultiplier: 1.4,
+    yieldFactor: 0.85,
+    description: 'Desinfección terminal con tiempo de contacto controlado.'
   },
   industrial_degreaser: {
     id: 'industrial_degreaser',
     name: 'Protocolo Industrial Pesado',
-    normative: 'Norma de Seguridad Industrial y Manejo Químico',
-    chemicalProduct: 'Desengrasante Solvente emulsionable + Sellador acrílico protector',
+    normative: 'Normas de seguridad industrial y manejo de químicos',
+    chemicalProduct: 'Desengrasante industrial emulsionable',
     contactTimeMinutes: 6,
-    costMultiplier: 1.10,
-    description: 'Remoción de grasas minerales, caucho de montacargas e hidrocarburos.'
+    costMultiplier: 1.1,
+    yieldFactor: 0.95,
+    description: 'Remoción de grasas, aceites e hidrocarburos.'
   }
 };
 
-// Regímenes de Turnos según Código del Trabajo de Ecuador
+/**
+ * Regímenes de turnos. Cada turno dura 8h; nocturnalHours = horas dentro de 19h00–06h00 (Art. 49).
+ * El personal (FTE) se calcula por horas de cobertura semanales ÷ 40h legales.
+ */
 export const SHIFT_REGIMES = {
   diurno_5d: {
     id: 'diurno_5d',
-    label: 'Diurno — Lunes a Viernes (40h/sem)',
-    shiftsPerDay: 1,
-    operatingDaysMonth: 22,
-    hoursPerDay: 8,
-    nightSurcharge: false,
-    reliefFactor: 1.0, // Jornada ordinaria sin relevo de fin de semana
-    workloadFactor: 1.0,
-    description: 'Jornada diurna estándar de oficina o edificio público.'
+    label: 'Diurno — Lunes a Viernes (1 turno, 40h/sem)',
+    daysPerWeek: 5,
+    shifts: [{ name: 'Diurno 07h00–15h00', hours: 8, nocturnalHours: 0 }],
+    description: 'Jornada ordinaria de oficina o edificio público.'
   },
   diurno_6d: {
     id: 'diurno_6d',
-    label: 'Diurno — Lunes a Sábado (44h/sem)',
-    shiftsPerDay: 1,
-    operatingDaysMonth: 26,
-    hoursPerDay: 8,
-    nightSurcharge: false,
-    reliefFactor: 1.08,
-    workloadFactor: 1.06,
-    description: 'Jornada comercial diurna con sábado rotativo.'
+    label: 'Diurno — Lunes a Sábado (1 turno, cobertura 48h/sem)',
+    daysPerWeek: 6,
+    shifts: [{ name: 'Diurno 07h00–15h00', hours: 8, nocturnalHours: 0 }],
+    description: 'Cobertura de 6 días con personal de 40h/sem (requiere 1,2 FTE por puesto).'
   },
   extended_16h_7d: {
     id: 'extended_16h_7d',
-    label: 'Extendido — 2 Turnos / 7 Días a la semana (16h/día)',
-    shiftsPerDay: 2,
-    operatingDaysMonth: 30,
-    hoursPerDay: 16,
-    nightSurcharge: true,
-    reliefFactor: 1.25,
-    workloadFactor: 1.22,
-    description: 'Patios de comida de centros comerciales, supermercados y terminales.'
+    label: 'Extendido — 2 turnos, 7 días (06h00–22h00)',
+    daysPerWeek: 7,
+    shifts: [
+      { name: 'Turno 1 06h00–14h00', hours: 8, nocturnalHours: 0 },
+      { name: 'Turno 2 14h00–22h00', hours: 8, nocturnalHours: 3 }
+    ],
+    description: 'Centros comerciales, supermercados y terminales.'
   },
   continuous_24_7: {
     id: 'continuous_24_7',
-    label: 'Continuo Crítico — 3 Turnos Rotativos 24/7 (24h/día)',
-    shiftsPerDay: 3,
-    operatingDaysMonth: 30,
-    hoursPerDay: 24,
-    nightSurcharge: true,
-    reliefFactor: 1.45,
-    workloadFactor: 1.42,
-    description: 'Quirófanos, salas de emergencia hospitalaria y plantas de producción continua.'
+    label: 'Continuo — 3 turnos rotativos 24/7',
+    daysPerWeek: 7,
+    shifts: [
+      { name: 'Turno 1 06h00–14h00', hours: 8, nocturnalHours: 0 },
+      { name: 'Turno 2 14h00–22h00', hours: 8, nocturnalHours: 3 },
+      { name: 'Turno 3 22h00–06h00', hours: 8, nocturnalHours: 8 }
+    ],
+    description: 'Áreas hospitalarias y operaciones continuas.'
   }
 };
 
-// Grado de Maquinaria y Tecnología
 export const MACHINERY_OPTIONS = {
   manual: {
     id: 'manual',
-    label: 'Operación Manual Convencional',
-    yieldMultiplier: 0.95,
+    label: 'Operación Manual (sin maquinaria)',
+    yieldMultiplier: 0.9,
     monthlyCostPerM2: 0.02,
-    description: 'Herramientas manuales estándar (carros doble balde, mopas planas microfibra).'
+    description: 'Carros doble balde y mopas de microfibra.'
   },
   semi_mechanized: {
     id: 'semi_mechanized',
-    label: 'Semi-mecanizado (Aspiradoras & Rotativas)',
-    yieldMultiplier: 1.10,
+    label: 'Estándar SERCOP (pulidora + aspiradora industrial)',
+    yieldMultiplier: 1.0,
     monthlyCostPerM2: 0.04,
-    description: 'Aspirado mecánico de sólidos y pulido de pisos con máquina monodisco.'
+    description: 'Maquinaria mínima exigida por las fichas SERCOP. Es la línea base del rendimiento.'
   },
   heavy_mechanized: {
     id: 'heavy_mechanized',
-    label: 'Alta Mecanización (Fregadoras Automáticas)',
-    yieldMultiplier: 1.25,
+    label: 'Alta Mecanización (fregadoras automáticas)',
+    yieldMultiplier: 1.15,
     monthlyCostPerM2: 0.07,
-    description: 'Fregado industrial automático con secado instantáneo. Multiplica la productividad en pasillos amplios.'
+    description: 'Fregado automático con secado inmediato en superficies amplias.'
   }
 };
 
-// Casos de Estudio Reales Preconfigurados del Mercado Ecuatoriano (SERCOP & Sector Privado)
+/**
+ * Supuestos visibles en la app (pestaña "Supuestos y fuentes").
+ */
+export const ASSUMPTIONS = [
+  { param: 'Salario Básico Unificado 2026', value: 'USD 482,00', type: 'oficial', source: 'sbu2026' },
+  { param: 'Aporte patronal IESS', value: '12,15% (11,15% + 0,5% SECAP + 0,5% IECE)', type: 'oficial', source: 'iess2026' },
+  { param: 'Décimo tercero / décimo cuarto', value: '1/12 de la remuneración / 1 SBU anual ÷ 12', type: 'oficial', source: null },
+  { param: 'Fondos de reserva', value: '8,33% (aplica desde el 2º año; se asume contrato plurianual)', type: 'oficial', source: null },
+  { param: 'Vacaciones', value: '15 días/año (4,17%)', type: 'oficial', source: null },
+  { param: 'Recargo nocturno', value: '25% sobre horas entre 19h00 y 06h00', type: 'oficial', source: 'nocturno' },
+  { param: 'Jornada máxima', value: '40 h/semana', type: 'oficial', source: null },
+  { param: 'Rendimientos oficinas / alta afluencia / educativas / externas', value: '900 / 650 / 1.000 / 2.500 m² por auxiliar', type: 'oficial', source: 'fichaAreaInterna' },
+  { param: 'Regla de redondeo de personal', value: 'Fracción < 0,50 se descarta; 0,50–0,80 = medio tiempo; > 0,80 = tiempo completo', type: 'oficial', source: 'fichaAreaInterna' },
+  { param: 'Supervisión', value: '1 supervisor cada 25 auxiliares; hasta 5 auxiliares supervisa uno de ellos', type: 'oficial', source: 'fichaAreaInterna' },
+  { param: 'Rendimiento hospitalización general', value: '1.000 m² por auxiliar/turno', type: 'estimacion', source: 'contratosIESS' },
+  { param: 'Rendimiento áreas críticas', value: '500 m² por auxiliar/turno', type: 'estimacion', source: 'fichaHospitalaria8h' },
+  { param: 'Dotación en turnos 2 y 3 (hospitalización general)', value: '50% del turno diurno', type: 'estimacion', source: null },
+  { param: 'Reemplazo de vacaciones (servicios 7 días)', value: '× 365/350 = 1,043', type: 'derivado', source: null },
+  { param: 'Factores de riesgo, tráfico, protocolo, mecanización y frecuencia', value: 'Ver selector (relativos a la tipología)', type: 'estimacion', source: null },
+  { param: 'Costos de insumos químicos, EPP, uniformes y maquinaria', value: 'Por tipología (USD/m² y USD/FTE)', type: 'estimacion', source: null },
+  { param: 'Remuneración del supervisor', value: '1,25 × costo del auxiliar', type: 'estimacion', source: null },
+  { param: 'Recargo 100% fines de semana y feriados', value: 'No incluido (se asumen descansos rotativos); validar con asesoría laboral', type: 'estimacion', source: null }
+];
+
+/**
+ * Escenarios de demostración. Son casos HIPOTÉTICOS con parámetros representativos;
+ * no corresponden a cotizaciones reales de las instituciones mencionadas en las referencias.
+ */
 export const REAL_PRESETS = [
   {
-    id: 'hospital_quito',
-    name: 'Hospital de Especialidades IESS — Quirófanos & UCI 24/7',
-    subtitle: 'Caso Hospitalario Crítico (Quito, Ecuador • SERCOP CPC 85330.01.1)',
+    id: 'critical_block',
+    name: 'Escenario A — Bloque quirúrgico + UCI 24/7 (650 m²)',
+    subtitle: 'Escenario hipotético de área crítica hospitalaria',
     infrastructureType: 'hospital_critical',
     areaM2: 650,
     sanitaryRiskLevel: 5,
@@ -456,13 +439,14 @@ export const REAL_PRESETS = [
     disinfectionProtocol: 'hospital_grade',
     shiftRegime: 'continuous_24_7',
     machineryOption: 'semi_mechanized',
+    dailyFrequency: 3,
     targetMargin: 16,
     indirectRate: 9
   },
   {
-    id: 'hospital_general_iess',
-    name: 'Hospital Teodoro Maldonado Carbo / Verdi Cevallos (Hospitalización General)',
-    subtitle: 'Caso Salud General (Guayaquil / Portoviejo • SERCOP $2,86-$3,21/m²)',
+    id: 'general_hospital',
+    name: 'Escenario B — Hospitalización general 24/7 (2.800 m²)',
+    subtitle: 'Escenario hipotético; se compara con contratos IESS reales',
     infrastructureType: 'general_healthcare',
     areaM2: 2800,
     sanitaryRiskLevel: 4,
@@ -470,13 +454,14 @@ export const REAL_PRESETS = [
     disinfectionProtocol: 'clinical_intermediate',
     shiftRegime: 'continuous_24_7',
     machineryOption: 'semi_mechanized',
+    dailyFrequency: 2,
     targetMargin: 16,
     indirectRate: 8
   },
   {
-    id: 'mall_foodcourt',
-    name: 'Mall del Sol / Quicentro — Patio de Comidas Central',
-    subtitle: 'Caso Retail Alto Tráfico (Guayaquil / Quito • SERCOP $2,04-$2,85/m²)',
+    id: 'food_court',
+    name: 'Escenario C — Patio de comidas de centro comercial (1.850 m²)',
+    subtitle: 'Escenario hipotético de alto tráfico, 2 turnos 7 días',
     infrastructureType: 'food_court_retail',
     areaM2: 1850,
     sanitaryRiskLevel: 3,
@@ -484,13 +469,14 @@ export const REAL_PRESETS = [
     disinfectionProtocol: 'food_safe',
     shiftRegime: 'extended_16h_7d',
     machineryOption: 'heavy_mechanized',
+    dailyFrequency: 2,
     targetMargin: 18,
     indirectRate: 8
   },
   {
-    id: 'corporate_tower',
-    name: 'Edificio Gubernamental / Plataforma Financiera (Oficinas)',
-    subtitle: 'Caso Administrativo Público (Quito • Catálogo SERCOP $0,91-$1,21/m²)',
+    id: 'public_office',
+    name: 'Escenario D — Edificio administrativo público (3.200 m²)',
+    subtitle: 'Escenario hipotético comparable con el catálogo SERCOP de áreas internas',
     infrastructureType: 'corporate_office',
     areaM2: 3200,
     sanitaryRiskLevel: 1,
@@ -498,13 +484,14 @@ export const REAL_PRESETS = [
     disinfectionProtocol: 'standard',
     shiftRegime: 'diurno_5d',
     machineryOption: 'semi_mechanized',
+    dailyFrequency: 1,
     targetMargin: 18,
     indirectRate: 9
   },
   {
-    id: 'industrial_plant',
-    name: 'Planta de Procesamiento Agroindustrial / CELEC EP',
-    subtitle: 'Caso Logística e Industria Pesada (SERCOP $0,65-$0,92/m²)',
+    id: 'industrial',
+    name: 'Escenario E — Bodega logística / planta industrial (4.500 m²)',
+    subtitle: 'Escenario hipotético de gran superficie mecanizada',
     infrastructureType: 'industrial_logistics',
     areaM2: 4500,
     sanitaryRiskLevel: 2,
@@ -512,20 +499,22 @@ export const REAL_PRESETS = [
     disinfectionProtocol: 'industrial_degreaser',
     shiftRegime: 'diurno_6d',
     machineryOption: 'heavy_mechanized',
+    dailyFrequency: 1,
     targetMargin: 15,
     indirectRate: 8
   },
   {
-    id: 'university_campus',
-    name: 'Universidad Central del Ecuador / EPN (Campus Universitario)',
-    subtitle: 'Caso Educación Superior Pública (Quito • SERCOP $0,85-$1,18/m²)',
+    id: 'campus',
+    name: 'Escenario F — Campus universitario (2.400 m²)',
+    subtitle: 'Escenario hipotético comparable con el catálogo SERCOP de instituciones educativas',
     infrastructureType: 'educational_campus',
     areaM2: 2400,
     sanitaryRiskLevel: 2,
     trafficLevel: 'high',
     disinfectionProtocol: 'standard',
-    shiftRegime: 'diurno_6d',
+    shiftRegime: 'diurno_5d',
     machineryOption: 'semi_mechanized',
+    dailyFrequency: 1,
     targetMargin: 16,
     indirectRate: 8
   }

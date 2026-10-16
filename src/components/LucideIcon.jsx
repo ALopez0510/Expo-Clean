@@ -37,7 +37,23 @@ import {
   BarChart3,
   Calendar,
   Zap,
-  ArrowRight
+  ArrowRight,
+  FolderOpen,
+  Landmark,
+  ExternalLink,
+  Target,
+  Lightbulb,
+  FileCode,
+  CheckSquare,
+  AlertOctagon,
+  FileCheck,
+  Rocket,
+  ClipboardCheck,
+  Wallet,
+  ListChecks,
+  BookOpen,
+  XCircle,
+  Info
 } from 'lucide-react';
 
 const iconMap = {
@@ -78,7 +94,23 @@ const iconMap = {
   BarChart3,
   Calendar,
   Zap,
-  ArrowRight
+  ArrowRight,
+  FolderOpen,
+  Landmark,
+  ExternalLink,
+  Target,
+  Lightbulb,
+  FileCode,
+  CheckSquare,
+  AlertOctagon,
+  FileCheck,
+  Rocket,
+  ClipboardCheck,
+  Wallet,
+  ListChecks,
+  BookOpen,
+  XCircle,
+  Info
 };
 
 export function LucideIcon({ name, size = 18, className = '', color, ...props }) {

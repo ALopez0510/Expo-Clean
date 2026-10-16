@@ -6,7 +6,8 @@ export function Header({
   selectedPresetId,
   onSelectPreset,
   onOpenProposal,
-  onOpenDefense
+  onOpenDefense,
+  onOpenPliego
 }) {
   return (
     <header className="top-header" id="app-top-header">
@@ -22,16 +23,16 @@ export function Header({
               <h1 style={{ margin: 0 }}>CleanQuote Pro</h1>
               <span className="hackathon-badge">EXPO CLEAN ECUADOR • FACILITY SUITE</span>
             </div>
-            <p>Sistema Dinámico de Cotización y Costos Unitarios según Tipología de Infraestructura (SERCOP CPC 85330)</p>
+            <p>Sistema Dinámico de Cotización y Costos Unitarios según Tipología de Infraestructura (referencias SERCOP, CPC 85330)</p>
           </div>
         </div>
 
         <div className="header-actions">
           {/* Preset Selector */}
-          <div className="preset-selector-box" title="Cargar casos reales del sector de Facility Management y SERCOP">
+          <div className="preset-selector-box" title="Cargar escenarios de demostración (hipotéticos)">
             <label htmlFor="preset-select" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
               <LucideIcon name="FolderOpen" size={14} />
-              <span>Caso Real:</span>
+              <span>Escenario:</span>
             </label>
             <select
               id="preset-select"
@@ -49,10 +50,21 @@ export function Header({
           </div>
 
           <button
+            id="btn-open-pliego"
+            className="btn-secondary"
+            onClick={onOpenPliego}
+            title="Leer un pliego o TDR en PDF con IA y llenar el cotizador"
+            style={{ borderColor: '#a5b4fc', color: '#4338ca' }}
+          >
+            <LucideIcon name="Sparkles" size={14} />
+            <span>Importar pliego (IA)</span>
+          </button>
+
+          <button
             id="btn-defense-modal"
             className="btn-secondary"
             onClick={onOpenDefense}
-            title="Ver sustentación técnica y respuestas oficiales para el Comité Evaluador"
+            title="Ver ficha técnica y entregables del manual"
           >
             <LucideIcon name="Award" size={14} />
             <span>Ficha Técnica</span>
@@ -62,7 +74,7 @@ export function Header({
             id="btn-open-proposal-modal"
             className="btn-primary"
             onClick={onOpenProposal}
-            title="Generar oferta formal técnico-financiera lista para cliente, SERCOP o jurado"
+            title="Generar borrador de oferta técnico-financiera"
           >
             <LucideIcon name="FileCheck" size={14} />
             <span>Generar Oferta PDF</span>
