@@ -9,6 +9,14 @@ import { ApiError } from "./errors.js";
 import { listCore } from "./repositories/core-repository.js";
 import { getApu, listApus } from "./repositories/apu-repository.js";
 import {
+  createCleaningProduct,
+  deactivateCleaningProduct,
+  getCleaningProduct,
+  listCleaningProducts,
+  listCleaningProductsForApu,
+  updateCleaningProduct,
+} from "./repositories/cleaning-product-repository.js";
+import {
   addBudgetItem,
   deleteBudgetItem,
   getBudgetWithItems,
@@ -60,6 +68,21 @@ const requireAuth = asyncRoute(async (request, _response, next) => {
   request.user = user;
   next();
 });
+
+function hasPermission(user, permission) {
+  const permissions = user?.role?.permissions;
+  if (permissions === "*") return true;
+  if (Array.isArray(permissions)) return permissions.includes(permission);
+  return Boolean(permissions && typeof permissions === "object" && permissions[permission] === true);
+}
+
+function requireCleaningProductWrite(request, _response, next) {
+  if (!hasPermission(request.user, "budget:write")) {
+    next(new ApiError("No tienes permisos para administrar productos de limpieza.", 403, "FORBIDDEN"));
+    return;
+  }
+  next();
+}
 
 function regenerateSession(request) {
   return new Promise((resolve, reject) => {
@@ -118,6 +141,27 @@ app.get("/api/users", requireAuth, asyncRoute(async (_request, response) => resp
 app.get("/api/clients", requireAuth, asyncRoute(async (_request, response) => response.json({ clients: await listCore("clients") })));
 app.get("/api/projects", requireAuth, asyncRoute(async (_request, response) => response.json({ projects: await listCore("projects") })));
 app.get("/api/apus", requireAuth, asyncRoute(async (_request, response) => response.json({ apus: await listApus() })));
+app.get("/api/cleaning-products", requireAuth, asyncRoute(async (request, response) => response.json({
+  items: await listCleaningProducts(request.query),
+})));
+app.post("/api/cleaning-products", requireAuth, requireCleaningProductWrite, asyncRoute(async (request, response) => response.status(201).json({
+  product: await createCleaningProduct(requireObjectBody(request)),
+})));
+app.put("/api/cleaning-products/:id", requireAuth, requireCleaningProductWrite, asyncRoute(async (request, response) => response.json({
+  product: await updateCleaningProduct(request.params.id, requireObjectBody(request)),
+})));
+app.patch("/api/cleaning-products/:id", requireAuth, requireCleaningProductWrite, asyncRoute(async (request, response) => response.json({
+  product: await updateCleaningProduct(request.params.id, requireObjectBody(request)),
+})));
+app.delete("/api/cleaning-products/:id", requireAuth, requireCleaningProductWrite, asyncRoute(async (request, response) => response.json({
+  product: await deactivateCleaningProduct(request.params.id),
+})));
+app.get("/api/cleaning-products/:id", requireAuth, asyncRoute(async (request, response) => response.json({
+  product: await getCleaningProduct(request.params.id),
+})));
+app.get("/api/apus/:apuId/cleaning-products", requireAuth, asyncRoute(async (request, response) => response.json({
+  items: await listCleaningProductsForApu(request.params.apuId),
+})));
 app.get("/api/apus/:apuId", requireAuth, asyncRoute(async (request, response) => response.json({ apu: await getApu(request.params.apuId) })));
 app.get("/api/budgets/:budgetId", requireAuth, asyncRoute(async (request, response) => response.json(await getBudgetWithItems(request.params.budgetId))));
 app.patch("/api/budgets/:budgetId", requireAuth, asyncRoute(async (request, response) => response.json({ budget: await updateBudgetSnapshot(request.params.budgetId, requireObjectBody(request)) })));
