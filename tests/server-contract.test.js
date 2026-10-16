@@ -75,6 +75,13 @@ describe("Express runtime contract", () => {
       ["/api/clients"],
       ["/api/projects"],
       ["/api/apus"],
+      ["/api/cleaning-products"],
+      ["/api/cleaning-products", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}) }],
+      ["/api/cleaning-products/PRD-DEMO-001"],
+      ["/api/cleaning-products/PRD-DEMO-001", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({}) }],
+      ["/api/cleaning-products/PRD-DEMO-001", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({}) }],
+      ["/api/cleaning-products/PRD-DEMO-001", { method: "DELETE" }],
+      ["/api/apus/APU-DEMO-001/cleaning-products"],
       ["/api/apus/APU-001"],
       ["/api/budgets/BUD-001"],
       ["/api/budget-items/ITEM-001", { method: "PATCH", headers: { "content-type": "application/json" }, body: "{}" }],
@@ -110,6 +117,18 @@ describe("frontend security contract", () => {
     assert.match(html, /apiClient\.logout/);
     assert.match(html, /cdn\.jsdelivr\.net\/npm\/chart\.js/i);
     assert.match(html, /const chartRegistry/);
+    assert.match(html, /data-view="cleaning-products"/);
+    assert.match(html, /apiClient\.getCleaningProducts/);
+    assert.match(html, /apiClient\.createCleaningProduct/);
+    assert.match(html, /apiClient\.updateCleaningProduct/);
+    assert.match(html, /apiClient\.deactivateCleaningProduct/);
+    assert.match(html, /function canManageCleaningProducts\(\)/);
+    assert.match(html, /function renderCleaningProductEditor\(\)/);
+    assert.match(html, /PRODUCT_CREATED/);
+    assert.match(html, /PRODUCT_UPDATED/);
+    assert.match(html, /PRODUCT_DEACTIVATED/);
+    assert.match(html, /function renderCleaningProductsView\(\)/);
+    assert.doesNotMatch(html, /PRD-DEMO-\d{3}/);
     assert.doesNotMatch(html, /DB_PASSWORD\s*=/i);
     assert.doesNotMatch(html, /postgresql:\/\//i);
     assert.doesNotMatch(html, /password_hash/i);
@@ -117,6 +136,54 @@ describe("frontend security contract", () => {
     assert.doesNotMatch(html, /id=["']roleSwitcher["']/i);
     assert.doesNotMatch(html, /function\s+switchRole\s*\(/i);
     assert.doesNotMatch(html, /Demo(?:Presu|Revisor|Finanzas|Gerente|Cliente|Legal)2026!/i);
+  });
+});
+
+describe("cleaning product CRUD contract", () => {
+  it("uses the repository validation and logical deactivation path without physical deletes", async () => {
+    const repository = await readFile(new URL("../server/repositories/cleaning-product-repository.js", import.meta.url), "utf8");
+    const server = await readFile(new URL("../server/server.js", import.meta.url), "utf8");
+    assert.match(repository, /export async function createCleaningProduct/);
+    assert.match(repository, /export async function updateCleaningProduct/);
+    assert.match(repository, /export async function deactivateCleaningProduct/);
+    assert.match(repository, /SKU_EXISTS/);
+    assert.match(repository, /purchasePrice/);
+    assert.match(repository, /contentQuantity/);
+    assert.match(repository, /"active"\s*=\s*FALSE/);
+    assert.doesNotMatch(repository, /DELETE\s+FROM\s+"cleaning_products"/i);
+    assert.match(server, /app\.post\("\/api\/cleaning-products"/);
+    assert.match(server, /app\.put\("\/api\/cleaning-products\/:id"/);
+    assert.match(server, /app\.patch\("\/api\/cleaning-products\/:id"/);
+    assert.match(server, /app\.delete\("\/api\/cleaning-products\/:id"/);
+    assert.match(server, /requireCleaningProductWrite/);
+    assert.match(server, /budget:write/);
+  });
+});
+
+describe("APU cleaning product detail contract", () => {
+  it("keeps legacy components and renders product relations through the APU detail flow", async () => {
+    const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+    const repository = await readFile(new URL("../server/repositories/cleaning-product-repository.js", import.meta.url), "utf8");
+    const demoSeed = await readFile(new URL("../tools/demo_data.py", import.meta.url), "utf8");
+    assert.match(html, /getApuCleaningProducts: apuId/);
+    assert.match(html, /function renderApuDetailDrawer\(\)/);
+    assert.match(html, /function calculateApuCleaningProductCost\(relation\)/);
+    assert.match(html, /consumptionPerUnit/);
+    assert.match(html, /components JSONB/);
+    assert.match(html, /data-action="open-apu-detail"/);
+    assert.match(html, /data-action="retry-apu-cleaning-products"/);
+    assert.match(html, /No se pudieron cargar los productos de limpieza/);
+    assert.match(repository, /acp\."product_id" AS linked_product_id/);
+    assert.match(demoSeed, /\("APU-DEMO-004", "PRD-DEMO-006"/);
+    assert.match(demoSeed, /\("APU-DEMO-007", "PRD-DEMO-001"/);
+    const priceFunction = html.match(/function getApuCleaningProductPrice\(relation\) \{[\s\S]*?\n    \}/)?.[0];
+    const costFunction = html.match(/function calculateApuCleaningProductCost\(relation\) \{[\s\S]*?\n    \}/)?.[0];
+    assert.ok(priceFunction && costFunction, "APU product cost functions not found");
+    const calculateCost = Function(`${priceFunction}\n${costFunction}\nreturn calculateApuCleaningProductCost;`)();
+    assert.equal(calculateCost({ consumptionPerUnit: 0.02, purchasePrice: 19.75 }), 0.395);
+    assert.equal(calculateCost({ consumptionPerUnit: 0, purchasePrice: 19.75 }), 0);
+    assert.equal(calculateCost({ consumptionPerUnit: -1, purchasePrice: 19.75 }), null);
+    assert.equal(calculateCost({ consumptionPerUnit: 0.02, purchasePrice: null, unitPriceSnapshot: 19.75 }), 0.395);
   });
 });
 

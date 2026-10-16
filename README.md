@@ -55,6 +55,18 @@ Todas las fórmulas y matrices de rendimiento del sistema están estrictamente c
 - **Persistencia:** PostgreSQL mediante `pg`, accesible al servidor por Tailscale
 - **Autenticación:** `express-session` + `bcrypt`; el navegador nunca recibe credenciales de base de datos
 
+## 🧴 Productos de Limpieza
+
+Los productos de limpieza son componentes de costo de los APUs; CleanQuote Pro no los trata como una tienda ni como inventario transaccional. El flujo vigente es:
+
+```text
+Producto de limpieza → APU / servicio → Presupuesto → Workflow / Dashboard
+```
+
+El catálogo se lee desde PostgreSQL mediante Express en `/api/cleaning-products`. El rol Presupuestista puede crear, editar y activar/desactivar productos usando el permiso existente `budget:write`; los demás roles no reciben controles de escritura en la SPA y Express rechaza esas mutaciones. La compra sigue visible solamente cuando existe `price:read` en la sesión, conforme a la lógica actual. El backend aún no tiene un permiso específico `cleaning-products:write` ni RBAC granular por campo.
+
+La demo incluye productos ficticios `PRD-DEMO-*` y relaciones `apu_cleaning_products`. Sus precios, marcas y proveedores son datos controlados de demostración y no representan precios de mercado. La desactivación es lógica (`active=false`) para conservar las referencias de APUs; no se borra físicamente un producto referenciado.
+
 ---
 
 ## 🚀 Instalación y Ejecución Local
@@ -81,6 +93,16 @@ Todas las fórmulas y matrices de rendimiento del sistema están estrictamente c
    ```
 
 La contraseña de PostgreSQL solo se proporciona mediante `DB_PASSWORD` en un `.env` local basado en `.env.example`. La migración SQL está en `server/migrations/001_add_password_hash.sql` y las cuentas existentes se consultan directamente desde PostgreSQL; no existe un paso de seed en el runtime.
+
+Para cargar la demo controlada de APUs, productos y relaciones:
+
+```bash
+python tools/demo_data.py start
+python tools/demo_data.py status
+python tools/demo_data.py cleanup
+```
+
+`tools/demo_data.py` es idempotente y conserva transacciones. `cleanup` elimina únicamente sus registros demo respetando las FKs.
 
 ---
 

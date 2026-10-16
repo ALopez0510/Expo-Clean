@@ -278,6 +278,9 @@
         <button class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] font-semibold" data-view="apu-catalog" type="button">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h16"/></svg><span>Catálogo de APUs</span>
         </button>
+        <button class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] font-semibold" data-view="cleaning-products" type="button">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 4h12v4H6zM8 8v12h8V8M10 12h4M10 16h4"/></svg><span>Productos de Limpieza</span>
+        </button>
         <button class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] font-semibold" data-view="budget" type="button">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 3h12a2 2 0 0 1 2 2v16H4V5a2 2 0 0 1 2-2Z"/><path d="M8 7h8M8 11h8M8 15h4"/></svg><span>Presupuesto</span><span id="sidebarBudgetCount" class="ml-auto rounded-full bg-indigo-500/20 px-2 py-0.5 text-[10px] text-indigo-300">0</span>
         </button>
@@ -355,6 +358,10 @@
         </div>
       </section>
 
+      <section id="cleaning-products-section" class="scroll-mt-5" data-ui-view="cleaning-products">
+        <div id="cleaning-products-view-container"></div>
+      </section>
+
       <div data-ui-view="budget" class="workspace-grid grid grid-cols-[minmax(0,1.55fr)_minmax(340px,.8fr)] items-start gap-6">
         <section id="budget-section" class="budget-panel card scroll-mt-5 overflow-hidden lg:sticky lg:top-5">
           <div class="flex items-start justify-between border-b border-slate-100 px-5 py-4"><div><div class="section-label mb-1">Composición</div><h2 class="text-[17px] font-extrabold tracking-[-.02em] text-slate-800">Presupuesto de obra</h2></div><div class="text-right"><div class="text-[10px] font-bold uppercase tracking-[.08em] text-slate-400">Actividades</div><div id="budgetCount" class="text-[20px] font-extrabold text-indigo-600">0</div></div></div>
@@ -406,7 +413,7 @@
       locale: "es-EC",
       currency: "USD",
       referenceDate: "2026-10-16",
-      supportedViews: ["dashboard", "apu-catalog", "budget", "summary", "workflow", "scenarios", "client-portal", "documents", "legal", "audit"],
+      supportedViews: ["dashboard", "apu-catalog", "cleaning-products", "budget", "summary", "workflow", "scenarios", "client-portal", "documents", "legal", "audit"],
       futureViews: []
     };
 
@@ -445,6 +452,11 @@
       getProjects: () => apiClient.request("/projects"),
       getApus: () => apiClient.request("/apus"),
       getApu: apuId => apiClient.request("/apus/" + encodeURIComponent(apuId)),
+      getCleaningProducts: () => apiClient.request("/cleaning-products"),
+      createCleaningProduct: payload => apiClient.request("/cleaning-products", { method: "POST", body: JSON.stringify(payload) }),
+      updateCleaningProduct: (productId, payload) => apiClient.request("/cleaning-products/" + encodeURIComponent(productId), { method: "PATCH", body: JSON.stringify(payload) }),
+      deactivateCleaningProduct: productId => apiClient.request("/cleaning-products/" + encodeURIComponent(productId), { method: "DELETE" }),
+      getApuCleaningProducts: apuId => apiClient.request("/apus/" + encodeURIComponent(apuId) + "/cleaning-products"),
       getBudget: budgetId => apiClient.request("/budgets/" + encodeURIComponent(budgetId)),
       updateBudgetSnapshot: (budgetId, payload) => apiClient.request("/budgets/" + encodeURIComponent(budgetId), { method: "PATCH", body: JSON.stringify(payload) }),
       addBudgetItem: (budgetId, payload) => apiClient.request("/budgets/" + encodeURIComponent(budgetId) + "/items", { method: "POST", body: JSON.stringify(payload) }),
@@ -657,9 +669,9 @@
     // ======================================================
     const appState = {
       session: { currentUserId: "USR-001", currentRole: "Presupuestista", permissions: [], isAuthenticated: false },
-      ui: { activeView: "dashboard", activeScenarioId: null, selectedScenarioApuId: null, activeDocumentId: null, auditFilters: { role: "ALL", action: "ALL", entity: "ALL", category: "ALL", stage: "ALL", search: "" }, sidebarCollapsed: false, activeModal: null, toast: null },
+      ui: { activeView: "dashboard", activeScenarioId: null, selectedScenarioApuId: null, activeDocumentId: null, selectedCleaningProductId: null, selectedApuId: null, cleaningProductEditor: { open: false, mode: "create", productId: null, saving: false, error: "" }, apuCleaningProductsLoading: false, apuCleaningProductsLoaded: false, apuCleaningProductsError: "", cleaningProductsLoading: false, cleaningProductsLoaded: false, cleaningProductsError: "", cleaningProductFilters: { search: "", category: "ALL", active: "ALL" }, auditFilters: { role: "ALL", action: "ALL", entity: "ALL", category: "ALL", stage: "ALL", search: "" }, sidebarCollapsed: false, activeModal: null, toast: null },
       filters: { apuSearch: "", apuCategory: "ALL", apuUnit: "ALL" },
-      data: { users: [], roles: [], clients: [], projects: [], apus: [], budgets: [], documents: [], comments: [], approvals: [], signatures: [], auditLog: [], priceReferences: [] },
+      data: { users: [], roles: [], clients: [], projects: [], apus: [], cleaningProducts: [], apuCleaningProducts: [], budgets: [], documents: [], comments: [], approvals: [], signatures: [], auditLog: [], priceReferences: [] },
       currentProjectId: "PRJ-001",
       currentBudgetId: "BUD-001",
       settings: { currency: APP_CONFIG.currency, overheadPercent: 8, contingencyPercent: 3, profitPercent: 10, taxPercent: 15, scenario: { minReliability: 0.70, conservativeBufferPercent: 5 } },
@@ -712,6 +724,8 @@
         clients: deepClone(mockDB.clients),
         projects: deepClone(mockDB.projects),
         apus: deepClone(mockDB.apus),
+        cleaningProducts: [],
+        apuCleaningProducts: [],
         budgets: deepClone(mockDB.budgets),
         documents: deepClone(mockDB.documents),
         comments: deepClone(mockDB.comments),
@@ -738,6 +752,92 @@
     function normalizeApiApu(apu) {
       if (!apu || typeof apu !== "object") return null;
       return { ...apu, components: apu.components && typeof apu.components === "object" ? apu.components : {} };
+    }
+
+    function normalizeApiApuCleaningProduct(relation) {
+      if (!relation || typeof relation !== "object" || (relation.productId === undefined && relation.linkedProductId === undefined)) return null;
+      return {
+        ...relation,
+        productId: String(relation.productId ?? relation.linkedProductId),
+        productName: String(relation.name || relation.productName || ""),
+        productUnit: String(relation.unit || relation.productUnit || relation.consumptionUnit || ""),
+        consumptionPerUnit: Number.isFinite(Number(relation.consumptionPerUnit)) ? Number(relation.consumptionPerUnit) : 0,
+        purchasePrice: relation.purchasePrice !== null && relation.purchasePrice !== undefined && Number.isFinite(Number(relation.purchasePrice)) ? Number(relation.purchasePrice) : null,
+        unitPriceSnapshot: relation.unitPriceSnapshot !== null && relation.unitPriceSnapshot !== undefined && Number.isFinite(Number(relation.unitPriceSnapshot)) ? Number(relation.unitPriceSnapshot) : null,
+        consumptionUnit: String(relation.consumptionUnit || relation.unit || ""),
+        relationMetadata: relation.relationMetadata && typeof relation.relationMetadata === "object" ? relation.relationMetadata : {}
+      };
+    }
+
+    function normalizeApiCleaningProduct(product) {
+      if (!product || typeof product !== "object" || product.id === undefined) return null;
+      return {
+        ...product,
+        id: String(product.id),
+        sku: String(product.sku || ""),
+        name: String(product.name || ""),
+        category: String(product.category || ""),
+        unit: String(product.unit || ""),
+        active: product.active === true || product.active === "true",
+        metadata: product.metadata && typeof product.metadata === "object" ? product.metadata : {}
+      };
+    }
+
+    async function loadCleaningProducts() {
+      const productUi = appState.ui;
+      if (productUi.cleaningProductsLoading) return;
+      if (!API_CONFIG.enabled) {
+        productUi.cleaningProductsLoaded = false;
+        productUi.cleaningProductsError = "La API de productos no está disponible en esta sesión.";
+        if (appState.ui.activeView === "cleaning-products") renderCleaningProductsView();
+        return;
+      }
+      productUi.cleaningProductsLoading = true;
+      productUi.cleaningProductsError = "";
+      if (appState.ui.activeView === "cleaning-products") renderCleaningProductsView();
+      try {
+        const payload = await apiClient.getCleaningProducts();
+        appState.data.cleaningProducts = readApiCollection(payload, "items").map(normalizeApiCleaningProduct).filter(Boolean);
+        productUi.cleaningProductsLoaded = true;
+        productUi.cleaningProductsError = "";
+      } catch (error) {
+        productUi.cleaningProductsLoaded = false;
+        productUi.cleaningProductsError = error?.message || "No se pudo cargar el catálogo de productos.";
+      } finally {
+        productUi.cleaningProductsLoading = false;
+        if (appState.ui.activeView === "cleaning-products") renderCleaningProductsView();
+      }
+    }
+
+    async function loadApuCleaningProducts(apuId) {
+      const apuUi = appState.ui;
+      if (!apuId) return;
+      if (!API_CONFIG.enabled) {
+        apuUi.apuCleaningProductsLoaded = false;
+        apuUi.apuCleaningProductsError = "La API de productos ligados al APU no está disponible en esta sesión.";
+        renderApuDetailDrawer();
+        return;
+      }
+      apuUi.apuCleaningProductsLoading = true;
+      apuUi.apuCleaningProductsLoaded = false;
+      apuUi.apuCleaningProductsError = "";
+      appState.data.apuCleaningProducts = [];
+      renderApuDetailDrawer();
+      try {
+        const payload = await apiClient.getApuCleaningProducts(apuId);
+        if (appState.ui.selectedApuId !== apuId) return;
+        appState.data.apuCleaningProducts = readApiCollection(payload, "items").map(normalizeApiApuCleaningProduct).filter(Boolean);
+        apuUi.apuCleaningProductsLoaded = true;
+      } catch (error) {
+        if (appState.ui.selectedApuId !== apuId) return;
+        apuUi.apuCleaningProductsLoaded = false;
+        apuUi.apuCleaningProductsError = error?.message || "No se pudieron cargar los productos ligados al APU.";
+      } finally {
+        if (appState.ui.selectedApuId === apuId) {
+          apuUi.apuCleaningProductsLoading = false;
+          renderApuDetailDrawer();
+        }
+      }
     }
 
     function normalizeApiBudgetItem(item) {
@@ -885,6 +985,12 @@
     function hasPermission(permission) {
       const permissions = getPermissionsForRole();
       return permissions.includes("*") || permissions.includes(permission);
+    }
+
+    // Temporary permission bridge: the current schema has no product-specific
+    // permission, so product writes follow the existing budget:write capability.
+    function canManageCleaningProducts() {
+      return hasPermission("budget:write");
     }
 
     function applyAuthenticatedUser(user) {
@@ -2512,6 +2618,8 @@
       appState.settings = deepClone(demoInitialSnapshot.settings);
       appState.workflow = deepClone(demoInitialSnapshot.workflow);
       renderApp();
+      renderCleaningProductDrawer();
+      renderApuDetailDrawer();
       showToast("Demo restablecida al estado inicial.");
       return true;
     }
@@ -2520,7 +2628,7 @@
     // 13. ROUTER / NAVIGATION
     // ======================================================
     function getViewPermission(viewName) {
-      return { dashboard: "dashboard:view", "apu-catalog": "apu:read", budget: "budget:read", summary: "budget:read", workflow: "workflow:internal-read", scenarios: "scenario:read", "client-portal": "proposal:view", documents: "documents:read", legal: "legal:read", audit: "audit:view" }[viewName] || null;
+      return { dashboard: "dashboard:view", "apu-catalog": "apu:read", "cleaning-products": "apu:read", budget: "budget:read", summary: "budget:read", workflow: "workflow:internal-read", scenarios: "scenario:read", "client-portal": "proposal:view", documents: "documents:read", legal: "legal:read", audit: "audit:view" }[viewName] || null;
     }
 
     function canViewForRole(viewName, role = getCurrentRole()) {
@@ -2535,12 +2643,16 @@
 
     function navigateTo(viewName) {
       if (!APP_CONFIG.supportedViews.includes(viewName) || !canViewForRole(viewName)) { showPermissionDenied(); return; }
+      if (appState.ui.cleaningProductEditor?.open) closeCleaningProductEditor();
+      if (appState.ui.selectedCleaningProductId) closeCleaningProductDrawer();
+      if (appState.ui.selectedApuId) closeApuDetailDrawer();
       appState.ui.activeView = viewName;
+      if (viewName === "cleaning-products" && !appState.ui.cleaningProductsLoaded && !appState.ui.cleaningProductsLoading) void loadCleaningProducts();
       renderCurrentView();
       renderDashboardCharts();
       renderScenarioCharts(appState.ui.activeScenarioId);
       renderClientCostDistributionChart();
-      const targetId = { dashboard: "dashboard-section", "apu-catalog": "catalog-section", budget: "budget-section", summary: "summary-section", workflow: "workflow-section", scenarios: "scenarios-section", "client-portal": "client-portal-section", documents: "documents-section", legal: "legal-section", audit: "audit-section" }[viewName];
+      const targetId = { dashboard: "dashboard-section", "apu-catalog": "catalog-section", "cleaning-products": "cleaning-products-section", budget: "budget-section", summary: "summary-section", workflow: "workflow-section", scenarios: "scenarios-section", "client-portal": "client-portal-section", documents: "documents-section", legal: "legal-section", audit: "audit-section" }[viewName];
       const target = document.getElementById(targetId);
       if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
@@ -2548,6 +2660,343 @@
     function renderApuCatalogView() {
       renderFilters();
       renderApuCatalog();
+    }
+
+    function renderCleaningProductsView() {
+      const container = document.getElementById("cleaning-products-view-container");
+      if (!container) return;
+      const productUi = appState.ui;
+      if (productUi.cleaningProductsLoading && !productUi.cleaningProductsLoaded) {
+        container.innerHTML = '<div class="card p-8 text-center"><div class="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" aria-hidden="true"></div><div class="text-[13px] font-semibold text-slate-700">Cargando productos de limpieza…</div><div class="mt-1 text-[11px] text-slate-400">Consultando el catálogo desde PostgreSQL vía API.</div></div>';
+        return;
+      }
+      if (productUi.cleaningProductsError && !productUi.cleaningProductsLoaded) {
+        container.innerHTML = '<div class="card border-rose-200 bg-rose-50 p-6"><div class="flex items-start gap-3"><div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-700"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.8 2.5 18a2 2 0 0 0 1.8 3h15.4a2 2 0 0 0 1.8-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/></svg></div><div><div class="text-[13px] font-bold text-rose-900">No se pudo cargar el catálogo</div><div class="mt-1 text-[12px] leading-5 text-rose-800">' + escapeHTML(productUi.cleaningProductsError) + '</div><button class="btn-secondary mt-4 border-rose-200 bg-white text-rose-800" data-action="retry-cleaning-products" type="button">Reintentar</button></div></div></div>';
+        return;
+      }
+      const filters = productUi.cleaningProductFilters;
+      const search = String(filters.search || "").trim().toLowerCase();
+      const categories = [...new Set(appState.data.cleaningProducts.map(product => product.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, APP_CONFIG.locale));
+      const products = appState.data.cleaningProducts.filter(product => {
+        const searchable = [product.sku, product.name, product.brand, product.description].map(value => String(value || "").toLowerCase()).join(" ");
+        const matchesSearch = !search || searchable.includes(search);
+        const matchesCategory = filters.category === "ALL" || product.category === filters.category;
+        const matchesActive = filters.active === "ALL" || (filters.active === "ACTIVE" ? product.active : !product.active);
+        return matchesSearch && matchesCategory && matchesActive;
+      });
+      const canSeeCost = hasPermission("price:read");
+      const canManage = canManageCleaningProducts();
+      const categoryOptions = '<option value="ALL">Todas las categorías</option>' + categories.map(category => '<option value="' + escapeHTML(category) + '"' + (filters.category === category ? ' selected' : '') + '>' + escapeHTML(category) + '</option>').join("");
+      const statusOptions = '<option value="ALL"' + (filters.active === "ALL" ? ' selected' : '') + '>Todos los estados</option><option value="ACTIVE"' + (filters.active === "ACTIVE" ? ' selected' : '') + '>Activos</option><option value="INACTIVE"' + (filters.active === "INACTIVE" ? ' selected' : '') + '>Inactivos</option>';
+      const rows = products.length ? products.map(product => {
+        const actions = canManage ? '<td class="px-5 py-3 text-right"><div class="flex justify-end gap-1.5"><button class="btn-ghost px-2 py-1 text-[10px]" data-action="edit-cleaning-product" data-product-id="' + escapeHTML(product.id) + '" type="button">Editar</button><button class="btn-ghost px-2 py-1 text-[10px] ' + (product.active ? 'text-rose-700' : 'text-emerald-700') + '" data-action="' + (product.active ? 'deactivate-cleaning-product' : 'activate-cleaning-product') + '" data-product-id="' + escapeHTML(product.id) + '" type="button">' + (product.active ? 'Desactivar' : 'Activar') + '</button></div></td>' : '';
+        return '<tr><td class="px-5 py-3 font-mono text-[10px] font-bold text-indigo-600">' + escapeHTML(product.sku) + '</td><td class="px-3 py-3"><button class="text-left" data-action="open-cleaning-product" data-product-id="' + escapeHTML(product.id) + '" type="button"><div class="truncate-safe max-w-[230px] text-[12px] font-bold text-slate-700 hover:text-indigo-700">' + escapeHTML(product.name) + '</div><div class="mt-0.5 truncate-safe max-w-[230px] text-[10px] text-slate-400">' + escapeHTML(product.id) + '</div></button></td><td class="px-3 py-3 text-[11px] text-slate-600">' + escapeHTML(product.category) + '</td><td class="px-3 py-3 text-[11px] text-slate-600">' + escapeHTML(product.brand || "—") + '</td><td class="px-3 py-3 text-[11px] text-slate-600">' + escapeHTML(product.presentation || "—") + '</td><td class="px-3 py-3 text-[11px] text-slate-600">' + escapeHTML(product.unit || "—") + '</td>' + (canSeeCost ? '<td class="px-3 py-3 text-right money text-[11px] font-bold text-slate-700">' + formatCurrency(product.purchasePrice) + '</td>' : '') + '<td class="px-3 py-3 text-right money text-[11px] font-bold text-slate-700">' + formatCurrency(product.salePrice) + '</td><td class="px-5 py-3 text-right"><span class="badge ' + (product.active ? 'badge-success' : 'badge-neutral') + '">' + (product.active ? 'Activo' : 'Inactivo') + '</span></td>' + actions + '</tr>';
+      }).join("") : '<tr><td colspan="' + ((canSeeCost ? 9 : 8) + (canManage ? 1 : 0)) + '" class="px-5 py-14 text-center"><div class="mx-auto flex max-w-sm flex-col items-center"><div class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-300 ring-1 ring-inset ring-slate-200"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a2 2 0 0 1 2 2v16H4V5a2 2 0 0 1 2-2Z"/><path d="M8 8h8M8 12h5"/></svg></div><div class="text-[13px] font-semibold text-slate-700">' + (appState.data.cleaningProducts.length ? 'No se encontraron productos con estos filtros.' : 'No hay productos de limpieza disponibles.') + '</div><div class="mt-1 text-[12px] text-slate-400">' + (appState.data.cleaningProducts.length ? 'Prueba con otra búsqueda o limpia los filtros.' : 'El catálogo aún no contiene registros para esta sesión.') + '</div>' + (appState.data.cleaningProducts.length ? '<button class="btn-secondary mt-4" data-action="clear-cleaning-product-filters" type="button">Limpiar filtros</button>' : '') + '</div></td></tr>';
+      const newButton = canManage ? '<button class="btn-primary" data-action="new-cleaning-product" type="button">Nuevo producto</button>' : '';
+      container.innerHTML = '<div class="mb-3 flex flex-wrap items-end justify-between gap-3"><div><div class="section-label mb-1">Base de costos · Catálogo real</div><h2 class="text-[18px] font-extrabold tracking-[-.025em] text-slate-800">Productos de Limpieza</h2><p class="mt-1 text-[11px] text-slate-500">Componentes de costo para APUs; fuente PostgreSQL vía API.</p></div><div class="flex items-center gap-2"><div class="rounded-full bg-white px-3 py-1.5 text-[11px] font-bold text-slate-500 shadow-sm ring-1 ring-slate-200">' + products.length + ' ' + (products.length === 1 ? 'producto' : 'productos') + '</div>' + newButton + '</div></div>' + (productUi.cleaningProductsError ? '<div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] text-amber-800">El catálogo se cargó parcialmente. ' + escapeHTML(productUi.cleaningProductsError) + '</div>' : '') + '<div class="card mb-5 p-4"><div class="filter-grid grid grid-cols-[minmax(220px,1.7fr)_minmax(175px,1fr)_minmax(150px,1fr)] gap-3"><label class="relative block"><span class="sr-only">Buscar productos</span><svg class="pointer-events-none absolute left-3 top-[11px] text-slate-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="cleaningProductSearch" class="filter-input" type="search" value="' + escapeHTML(filters.search) + '" placeholder="Buscar por SKU, producto, marca…" autocomplete="off" /></label><label><span class="sr-only">Filtrar por categoría</span><select id="cleaningProductCategory" class="filter-select w-full">' + categoryOptions + '</select></label><label><span class="sr-only">Filtrar por estado</span><select id="cleaningProductActive" class="filter-select w-full">' + statusOptions + '</select></label></div></div><div class="card table-shell table-scroll mb-6"><table class="min-w-[1120px] text-left"><thead><tr><th class="px-5 py-3">SKU</th><th class="px-3 py-3">Producto</th><th class="px-3 py-3">Categoría</th><th class="px-3 py-3">Marca</th><th class="px-3 py-3">Presentación</th><th class="px-3 py-3">Unidad</th>' + (canSeeCost ? '<th class="px-3 py-3 text-right">Precio compra</th>' : '') + '<th class="px-3 py-3 text-right">Precio venta</th><th class="px-5 py-3 text-right">Estado</th>' + (canManage ? '<th class="px-5 py-3 text-right">Acciones</th>' : '') + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+    }
+
+    function getCleaningProductById(productId) {
+      return appState.data.cleaningProducts.find(product => String(product.id) === String(productId)) || null;
+    }
+
+    function formatProductMetadata(metadata) {
+      const entries = Object.entries(metadata || {}).filter(([key, value]) => value !== undefined && value !== null && value !== "");
+      if (!entries.length) return '<div class="text-[11px] text-slate-400">Sin metadata adicional.</div>';
+      return '<div class="divide-y divide-slate-100 rounded-lg border border-slate-100">' + entries.map(([key, value]) => '<div class="flex items-start justify-between gap-4 px-3 py-2.5"><span class="text-[10px] font-bold uppercase tracking-[.06em] text-slate-400">' + escapeHTML(key) + '</span><span class="max-w-[65%] break-words text-right text-[11px] font-semibold text-slate-700">' + escapeHTML(typeof value === "object" ? JSON.stringify(value) : String(value)) + '</span></div>').join("") + '</div>';
+    }
+
+    function cleaningProductFormText(product, key, fallback = "") {
+      const value = product?.[key];
+      return value === undefined || value === null ? fallback : String(value);
+    }
+
+    function cleaningProductFormNumber(product, key) {
+      const value = product?.[key];
+      return value === undefined || value === null || value === "" ? "" : String(value);
+    }
+
+    function openNewCleaningProductForm() {
+      if (!canManageCleaningProducts()) { showPermissionDenied(); return; }
+      appState.ui.selectedCleaningProductId = null;
+      appState.ui.selectedApuId = null;
+      appState.ui.cleaningProductEditor = { open: true, mode: "create", productId: null, saving: false, error: "" };
+      renderCleaningProductDrawer();
+    }
+
+    function openEditCleaningProductForm(productId) {
+      if (!canManageCleaningProducts()) { showPermissionDenied(); return; }
+      const product = getCleaningProductById(productId);
+      if (!product) { showToast("Producto no encontrado en el catálogo actual."); return; }
+      appState.ui.selectedCleaningProductId = null;
+      appState.ui.selectedApuId = null;
+      appState.ui.cleaningProductEditor = { open: true, mode: "edit", productId: product.id, saving: false, error: "" };
+      renderCleaningProductDrawer();
+    }
+
+    function closeCleaningProductEditor() {
+      appState.ui.cleaningProductEditor = { open: false, mode: "create", productId: null, saving: false, error: "" };
+      renderCleaningProductDrawer();
+    }
+
+    function collectCleaningProductForm() {
+      const raw = id => document.getElementById(id)?.value ?? "";
+      const text = (id, label, required = false, maxLength = 255) => {
+        const value = raw(id).trim();
+        if (required && !value) throw new Error(label + " es obligatorio.");
+        if (value.length > maxLength) throw new Error(label + " no puede superar " + maxLength + " caracteres.");
+        return value || null;
+      };
+      const decimal = (id, label, required = false, positive = false) => {
+        const value = raw(id).trim();
+        if (!value) {
+          if (required) throw new Error(label + " es obligatorio.");
+          return null;
+        }
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed) || parsed < 0 || (positive && parsed === 0)) throw new Error(label + (positive ? " debe ser mayor que cero." : " debe ser un número no negativo."));
+        return parsed;
+      };
+      const contentQuantity = decimal("cleaningProductContentQuantity", "La cantidad de contenido", false, true);
+      const contentUnit = text("cleaningProductContentUnit", "La unidad de contenido", false, 40);
+      if ((contentQuantity === null) !== (contentUnit === null)) throw new Error("La cantidad y la unidad de contenido deben enviarse juntas.");
+      const metadataText = raw("cleaningProductMetadata").trim();
+      let metadata = {};
+      if (metadataText) {
+        try { metadata = JSON.parse(metadataText); } catch (_error) { throw new Error("Metadata debe ser JSON válido."); }
+        if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) throw new Error("Metadata debe ser un objeto JSON.");
+      }
+      return {
+        sku: text("cleaningProductSku", "El SKU", true, 120),
+        name: text("cleaningProductName", "El nombre", true),
+        category: text("cleaningProductCategoryForm", "La categoría", true),
+        brand: text("cleaningProductBrand", "La marca"),
+        description: text("cleaningProductDescription", "La descripción", false, 2000),
+        unit: text("cleaningProductUnit", "La unidad", true, 40),
+        presentation: text("cleaningProductPresentation", "La presentación"),
+        contentQuantity,
+        contentUnit,
+        purchasePrice: decimal("cleaningProductPurchasePrice", "El precio de compra", true),
+        salePrice: decimal("cleaningProductSalePrice", "El precio de venta"),
+        supplier: text("cleaningProductSupplier", "El proveedor"),
+        sanitaryRegistration: text("cleaningProductSanitaryRegistration", "El registro sanitario"),
+        metadata,
+      };
+    }
+
+    async function saveCleaningProduct() {
+      if (!canManageCleaningProducts()) { showPermissionDenied(); return; }
+      const editor = appState.ui.cleaningProductEditor;
+      if (!editor.open || editor.saving) return;
+      try {
+        const payload = collectCleaningProductForm();
+        editor.saving = true;
+        editor.error = "";
+        const response = editor.mode === "edit"
+          ? await apiClient.updateCleaningProduct(editor.productId, payload)
+          : await apiClient.createCleaningProduct(payload);
+        const saved = response?.product;
+        if (!saved) throw new Error("La API no devolvió el producto guardado.");
+        logAuditEvent(editor.mode === "edit" ? "PRODUCT_UPDATED" : "PRODUCT_CREATED", "cleaning-product", saved.id, (editor.mode === "edit" ? "Producto actualizado: " : "Producto creado: ") + saved.name, { source: "local-audit", demo: saved.metadata?.demo === true });
+        appState.ui.cleaningProductEditor = { open: false, mode: "create", productId: null, saving: false, error: "" };
+        await loadCleaningProducts();
+        renderCleaningProductDrawer();
+        showToast(editor.mode === "edit" ? "Producto actualizado." : "Producto creado.");
+      } catch (error) {
+        editor.saving = false;
+        editor.error = error?.message || "No se pudo guardar el producto.";
+        showToast(editor.error);
+      }
+    }
+
+    async function deactivateCleaningProduct(productId) {
+      if (!canManageCleaningProducts()) { showPermissionDenied(); return; }
+      const product = getCleaningProductById(productId);
+      if (!product || !product.active) return;
+      if (typeof window !== "undefined" && typeof window.confirm === "function" && !window.confirm("¿Desactivar " + product.name + "? Se conservará para no romper referencias.")) return;
+      try {
+        const response = await apiClient.deactivateCleaningProduct(product.id);
+        const saved = response?.product || product;
+        logAuditEvent("PRODUCT_DEACTIVATED", "cleaning-product", saved.id, "Producto desactivado: " + saved.name, { source: "local-audit", logicalDelete: true });
+        appState.ui.selectedCleaningProductId = null;
+        await loadCleaningProducts();
+        renderCleaningProductDrawer();
+        showToast("Producto desactivado sin borrar sus referencias.");
+      } catch (error) {
+        showToast(error?.message || "No se pudo desactivar el producto.");
+      }
+    }
+
+    async function activateCleaningProduct(productId) {
+      if (!canManageCleaningProducts()) { showPermissionDenied(); return; }
+      const product = getCleaningProductById(productId);
+      if (!product || product.active) return;
+      try {
+        const response = await apiClient.updateCleaningProduct(product.id, { active: true });
+        const saved = response?.product || product;
+        logAuditEvent("PRODUCT_UPDATED", "cleaning-product", saved.id, "Producto activado: " + saved.name, { source: "local-audit", logicalDelete: false });
+        await loadCleaningProducts();
+        showToast("Producto activado.");
+      } catch (error) {
+        showToast(error?.message || "No se pudo activar el producto.");
+      }
+    }
+
+    function renderCleaningProductEditor() {
+      const modal = document.getElementById("modal-container");
+      if (!modal) return;
+      const editor = appState.ui.cleaningProductEditor;
+      const product = editor.mode === "edit" ? getCleaningProductById(editor.productId) : null;
+      if (editor.mode === "edit" && !product) { closeCleaningProductEditor(); return; }
+      const metadata = JSON.stringify(product?.metadata || {}, null, 2);
+      const field = (id, label, value, options = {}) => '<label class="block"><span class="mb-1 block text-[10px] font-bold uppercase tracking-[.06em] text-slate-500">' + label + (options.required ? ' <span class="text-rose-500">*</span>' : '') + '</span><input id="' + id + '" class="filter-input w-full" type="' + (options.type || "text") + '" value="' + escapeHTML(value) + '"' + (options.required ? ' required' : '') + (options.step ? ' step="' + options.step + '"' : '') + ' /></label>';
+      modal.className = "fixed inset-0 z-[70] flex justify-end bg-slate-950/40";
+      modal.setAttribute("aria-hidden", "false");
+      modal.innerHTML = '<div class="absolute inset-0" data-action="close-cleaning-product-editor"></div><aside class="relative z-10 flex h-full w-full max-w-2xl flex-col overflow-y-auto bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="cleaning-product-editor-title"><div class="flex items-start justify-between border-b border-slate-100 px-5 py-4"><div><div class="section-label mb-1">Catálogo de costos</div><h2 id="cleaning-product-editor-title" class="text-[18px] font-extrabold tracking-[-.025em] text-slate-800">' + (editor.mode === "edit" ? "Editar producto" : "Nuevo producto") + '</h2></div><button class="btn-secondary ml-4 shrink-0 px-2.5" data-action="close-cleaning-product-editor" type="button" aria-label="Cerrar formulario">×</button></div><form class="space-y-4 p-5" data-action="cleaning-product-form"><div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] leading-5 text-amber-900"><strong>Producto DEMO.</strong> Los precios son ficticios y no representan precios de mercado. El guardado conserva esta marca en metadata.</div>' + (editor.error ? '<div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-[11px] text-rose-800">' + escapeHTML(editor.error) + '</div>' : '') + '<div class="grid gap-3 sm:grid-cols-2">' + field("cleaningProductSku", "SKU", cleaningProductFormText(product, "sku"), { required: true }) + field("cleaningProductName", "Nombre", cleaningProductFormText(product, "name"), { required: true }) + field("cleaningProductCategoryForm", "Categoría", cleaningProductFormText(product, "category"), { required: true }) + field("cleaningProductBrand", "Marca", cleaningProductFormText(product, "brand")) + field("cleaningProductPresentation", "Presentación", cleaningProductFormText(product, "presentation")) + field("cleaningProductUnit", "Unidad", cleaningProductFormText(product, "unit", "unidad"), { required: true }) + field("cleaningProductContentQuantity", "Cantidad de contenido", cleaningProductFormNumber(product, "contentQuantity"), { type: "number", step: "any" }) + field("cleaningProductContentUnit", "Unidad de contenido", cleaningProductFormText(product, "contentUnit")) + field("cleaningProductPurchasePrice", "Precio de compra", cleaningProductFormNumber(product, "purchasePrice"), { type: "number", step: "0.01", required: true }) + field("cleaningProductSalePrice", "Precio de venta", cleaningProductFormNumber(product, "salePrice"), { type: "number", step: "0.01" }) + field("cleaningProductSupplier", "Proveedor", cleaningProductFormText(product, "supplier")) + field("cleaningProductSanitaryRegistration", "Registro sanitario", cleaningProductFormText(product, "sanitaryRegistration")) + '</div><label class="block"><span class="mb-1 block text-[10px] font-bold uppercase tracking-[.06em] text-slate-500">Descripción</span><textarea id="cleaningProductDescription" class="min-h-20 w-full rounded-lg border border-slate-200 p-2 text-[12px] outline-none" maxlength="2000">' + escapeHTML(cleaningProductFormText(product, "description")) + '</textarea></label><label class="block"><span class="mb-1 block text-[10px] font-bold uppercase tracking-[.06em] text-slate-500">Metadata JSON</span><textarea id="cleaningProductMetadata" class="min-h-28 w-full rounded-lg border border-slate-200 p-2 font-mono text-[11px] outline-none">' + escapeHTML(metadata) + '</textarea></label><div class="flex justify-end gap-2 border-t border-slate-100 pt-4"><button class="btn-secondary" data-action="close-cleaning-product-editor" type="button">Cancelar</button><button class="btn-primary" data-action="save-cleaning-product" type="submit"' + (editor.saving ? ' disabled' : '') + '>' + (editor.saving ? 'Guardando…' : 'Guardar producto') + '</button></div></form></aside>';
+    }
+
+    function openCleaningProductDrawer(productId) {
+      const product = getCleaningProductById(productId);
+      if (!product) return;
+      appState.ui.selectedApuId = null;
+      appState.ui.selectedCleaningProductId = product.id;
+      renderCleaningProductDrawer();
+    }
+
+    function closeCleaningProductDrawer() {
+      appState.ui.selectedCleaningProductId = null;
+      renderCleaningProductDrawer();
+    }
+
+    function renderCleaningProductDrawer() {
+      const modal = document.getElementById("modal-container");
+      if (!modal) return;
+      if (appState.ui.cleaningProductEditor?.open) {
+        renderCleaningProductEditor();
+        return;
+      }
+      const product = getCleaningProductById(appState.ui.selectedCleaningProductId);
+      if (!product) {
+        modal.className = "hidden";
+        modal.setAttribute("aria-hidden", "true");
+        modal.innerHTML = "";
+        return;
+      }
+      const canSeeCost = hasPermission("price:read");
+      const isDemo = product.metadata?.demo === true || product.metadata?.marketPriceClaim === false;
+      modal.className = "fixed inset-0 z-[60] flex justify-end bg-slate-950/40";
+      modal.setAttribute("aria-hidden", "false");
+      modal.innerHTML = '<div class="absolute inset-0" data-action="close-cleaning-product"></div><aside class="relative z-10 flex h-full w-full max-w-xl flex-col overflow-y-auto bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="cleaning-product-drawer-title"><div class="flex items-start justify-between border-b border-slate-100 px-5 py-4"><div class="min-w-0"><div class="section-label mb-1">Detalle del producto</div><h2 id="cleaning-product-drawer-title" class="truncate-safe text-[18px] font-extrabold tracking-[-.025em] text-slate-800">' + escapeHTML(product.name) + '</h2><div class="mt-1 font-mono text-[10px] font-bold text-indigo-600">' + escapeHTML(product.sku) + '</div></div><button class="btn-secondary ml-4 shrink-0 px-2.5" data-action="close-cleaning-product" type="button" aria-label="Cerrar detalle">×</button></div><div class="space-y-4 p-5">' + (isDemo ? '<div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] leading-5 text-amber-900"><strong>Producto DEMO.</strong> La información y los precios son ficticios y no representan precios de mercado.</div>' : '') + '<div class="grid grid-cols-2 gap-3"><div class="rounded-lg bg-slate-50 p-3"><div class="text-[10px] font-bold uppercase tracking-[.06em] text-slate-400">Categoría</div><div class="mt-1 text-[12px] font-bold text-slate-700">' + escapeHTML(product.category || "—") + '</div></div><div class="rounded-lg bg-slate-50 p-3"><div class="text-[10px] font-bold uppercase tracking-[.06em] text-slate-400">Estado</div><div class="mt-1"><span class="badge ' + (product.active ? 'badge-success' : 'badge-neutral') + '">' + (product.active ? 'Activo' : 'Inactivo') + '</span></div></div><div class="rounded-lg bg-slate-50 p-3"><div class="text-[10px] font-bold uppercase tracking-[.06em] text-slate-400">Presentación</div><div class="mt-1 text-[12px] font-bold text-slate-700">' + escapeHTML(product.presentation || "—") + '</div></div><div class="rounded-lg bg-slate-50 p-3"><div class="text-[10px] font-bold uppercase tracking-[.06em] text-slate-400">Unidad</div><div class="mt-1 text-[12px] font-bold text-slate-700">' + escapeHTML(product.unit || "—") + '</div></div></div><div class="card p-4"><div class="mb-2 text-[12px] font-extrabold text-slate-700">Descripción</div><div class="text-[12px] leading-5 text-slate-600">' + escapeHTML(product.description || "Sin descripción registrada.") + '</div></div><div class="grid gap-3 sm:grid-cols-2"><div class="card p-4"><div class="mb-2 text-[10px] font-bold uppercase tracking-[.06em] text-slate-400">Proveedor</div><div class="text-[12px] font-bold text-slate-700">' + escapeHTML(product.supplier || "—") + '</div></div><div class="card p-4"><div class="mb-2 text-[10px] font-bold uppercase tracking-[.06em] text-slate-400">Registro sanitario</div><div class="text-[12px] font-bold text-slate-700">' + escapeHTML(product.sanitaryRegistration || "No registrado") + '</div></div></div><div class="card p-4"><div class="mb-3 text-[12px] font-extrabold text-slate-700">Valores de catálogo</div><div class="grid grid-cols-2 gap-3"><div><div class="text-[10px] text-slate-400">Precio de compra</div><div class="money mt-1 text-[15px] font-extrabold ' + (canSeeCost ? 'text-slate-800' : 'text-slate-400') + '">' + (canSeeCost ? formatCurrency(product.purchasePrice) : 'Restringido') + '</div></div><div><div class="text-[10px] text-slate-400">Precio de venta</div><div class="money mt-1 text-[15px] font-extrabold text-slate-800">' + formatCurrency(product.salePrice) + '</div></div></div></div><div><div class="mb-2 text-[12px] font-extrabold text-slate-700">Metadata</div>' + formatProductMetadata(product.metadata) + '</div></div></aside>';
+      if (canManageCleaningProducts()) {
+        const actionBar = document.createElement("div");
+        actionBar.className = "border-t border-slate-100 p-5";
+        actionBar.innerHTML = '<div class="flex flex-wrap justify-end gap-2"></div>';
+        const actions = actionBar.firstElementChild;
+        const editButton = document.createElement("button");
+        editButton.className = "btn-primary";
+        editButton.type = "button";
+        editButton.dataset.action = "edit-cleaning-product";
+        editButton.dataset.productId = product.id;
+        editButton.textContent = "Editar producto";
+        actions.appendChild(editButton);
+        const statusButton = document.createElement("button");
+        statusButton.className = product.active ? "btn-ghost text-rose-700" : "btn-ghost text-emerald-700";
+        statusButton.type = "button";
+        statusButton.dataset.action = product.active ? "deactivate-cleaning-product" : "activate-cleaning-product";
+        statusButton.dataset.productId = product.id;
+        statusButton.textContent = product.active ? "Desactivar" : "Activar";
+        actions.appendChild(statusButton);
+        modal.querySelector("aside")?.appendChild(actionBar);
+      }
+    }
+
+    function getApuCleaningProductPrice(relation) {
+      const value = relation?.purchasePrice ?? relation?.unitPriceSnapshot;
+      const price = Number(value);
+      return Number.isFinite(price) && price >= 0 ? price : null;
+    }
+
+    function calculateApuCleaningProductCost(relation) {
+      const consumption = Number(relation?.consumptionPerUnit);
+      const price = getApuCleaningProductPrice(relation);
+      if (!Number.isFinite(consumption) || consumption < 0 || price === null) return null;
+      return consumption * price;
+    }
+
+    function getBudgetQuantityForApu(apuId) {
+      const item = appState.budget?.items?.find(entry => String(entry.apuId) === String(apuId));
+      const quantity = Number(item?.quantity);
+      return item && Number.isFinite(quantity) && quantity >= 0 ? quantity : null;
+    }
+
+    function closeApuDetailDrawer() {
+      appState.ui.selectedApuId = null;
+      appState.ui.apuCleaningProductsLoading = false;
+      appState.ui.apuCleaningProductsLoaded = false;
+      appState.ui.apuCleaningProductsError = "";
+      appState.data.apuCleaningProducts = [];
+      renderApuDetailDrawer();
+    }
+
+    function openApuDetailDrawer(apuId) {
+      const apu = getApuById(apuId);
+      if (!apu) return;
+      appState.ui.selectedCleaningProductId = null;
+      appState.ui.selectedApuId = apu.id;
+      appState.ui.apuCleaningProductsLoading = false;
+      appState.ui.apuCleaningProductsLoaded = false;
+      appState.ui.apuCleaningProductsError = "";
+      appState.data.apuCleaningProducts = [];
+      renderApuDetailDrawer();
+      void loadApuCleaningProducts(apu.id);
+    }
+
+    function renderApuDetailDrawer() {
+      const modal = document.getElementById("modal-container");
+      if (!modal) return;
+      const apu = getApuById(appState.ui.selectedApuId);
+      if (!apu) {
+        if (!appState.ui.selectedCleaningProductId) {
+          modal.className = "hidden";
+          modal.setAttribute("aria-hidden", "true");
+          modal.innerHTML = "";
+        }
+        return;
+      }
+      const canSeeCost = hasPermission("price:read");
+      const components = apu.components && typeof apu.components === "object" ? apu.components : {};
+      const componentDefinitions = [["labor", "MANO DE OBRA"], ["equipment", "EQUIPO"], ["materials", "MATERIALES · components JSONB"], ["transport", "TRANSPORTE"], ["other", "OTROS"]];
+      const componentRows = componentDefinitions.map(([key, label]) => {
+        const amount = Number(components[key]);
+        return '<div class="flex items-center justify-between gap-3 border-b border-slate-100 py-2.5 last:border-b-0"><span class="text-[10px] font-bold uppercase tracking-[.06em] text-slate-500">' + label + '</span><span class="money text-[12px] font-extrabold text-slate-700">' + (Number.isFinite(amount) && amount >= 0 ? formatCurrency(amount) : '—') + '</span></div>';
+      }).join("");
+      const budgetQuantity = getBudgetQuantityForApu(apu.id);
+      const productUi = appState.ui;
+      let productSection;
+      if (productUi.apuCleaningProductsLoading) {
+        productSection = '<div class="card p-4 text-center"><div class="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" aria-hidden="true"></div><div class="text-[12px] font-semibold text-slate-700">Cargando productos ligados…</div></div>';
+      } else if (productUi.apuCleaningProductsError) {
+        productSection = '<div class="rounded-lg border border-rose-200 bg-rose-50 p-4"><div class="text-[12px] font-bold text-rose-900">No se pudieron cargar los productos de limpieza.</div><div class="mt-1 text-[11px] leading-5 text-rose-800">' + escapeHTML(productUi.apuCleaningProductsError) + '</div><button class="btn-secondary mt-3 border-rose-200 bg-white text-rose-800" data-action="retry-apu-cleaning-products" data-apu-id="' + escapeHTML(apu.id) + '" type="button">Reintentar</button></div>';
+      } else if (!productUi.apuCleaningProductsLoaded) {
+        productSection = '<div class="card p-4 text-[11px] text-slate-400">Los productos ligados se consultarán desde la API al abrir este detalle.</div>';
+      } else if (!appState.data.apuCleaningProducts.length) {
+        productSection = '<div class="card p-4 text-[11px] text-slate-500">Este APU no tiene productos de limpieza ligados. El desglose `components` existente continúa vigente.</div>';
+      } else {
+        const productRows = appState.data.apuCleaningProducts.map(relation => {
+          const perApuCost = calculateApuCleaningProductCost(relation);
+          const totalCost = perApuCost !== null && budgetQuantity !== null ? perApuCost * budgetQuantity : null;
+          const unitPrice = getApuCleaningProductPrice(relation);
+          const priceMarkup = canSeeCost ? (unitPrice === null ? "—" : formatCurrency(unitPrice)) : "Restringido";
+          const costMarkup = canSeeCost ? (perApuCost === null ? "—" : formatCurrency(perApuCost)) : "Restringido";
+          const totalMarkup = canSeeCost ? (totalCost === null ? "—" : formatCurrency(totalCost)) : "Restringido";
+          return '<tr><td class="px-3 py-3"><div class="text-[11px] font-bold text-slate-700">' + escapeHTML(relation.productName || relation.name || "Producto") + '</div><div class="font-mono text-[10px] text-indigo-600">' + escapeHTML(relation.sku || relation.productId) + '</div></td><td class="px-3 py-3 text-[11px] text-slate-600">' + escapeHTML(relation.consumptionUnit || relation.productUnit || "—") + '</td><td class="px-3 py-3 text-right text-[11px] font-semibold text-slate-700">' + (Number.isFinite(Number(relation.consumptionPerUnit)) ? Number(relation.consumptionPerUnit) : "—") + '</td><td class="money px-3 py-3 text-right text-[11px] font-semibold text-slate-700">' + priceMarkup + '</td><td class="money px-3 py-3 text-right text-[11px] font-extrabold text-slate-800">' + costMarkup + '</td><td class="money px-3 py-3 text-right text-[11px] font-extrabold text-indigo-700">' + totalMarkup + '</td></tr>';
+        }).join("");
+        productSection = '<div class="card overflow-hidden"><div class="overflow-x-auto"><table class="min-w-[720px] w-full text-left"><thead><tr><th class="px-3 py-2">Producto</th><th class="px-3 py-2">Unidad</th><th class="px-3 py-2 text-right">Consumo / APU</th><th class="px-3 py-2 text-right">Precio unitario</th><th class="px-3 py-2 text-right">Costo / APU</th><th class="px-3 py-2 text-right">Total presupuesto</th></tr></thead><tbody>' + productRows + '</tbody></table></div></div>';
+      }
+      const quantityNote = budgetQuantity === null ? "Este APU no está en el presupuesto activo; el total presupuestado no aplica." : "Cantidad presupuestada: " + budgetQuantity + " " + escapeHTML(apu.unit || "unidades") + ".";
+      modal.className = "fixed inset-0 z-[60] flex justify-end bg-slate-950/40";
+      modal.setAttribute("aria-hidden", "false");
+      modal.innerHTML = '<div class="absolute inset-0" data-action="close-apu-detail"></div><aside class="relative z-10 flex h-full w-full max-w-2xl flex-col overflow-y-auto bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="apu-detail-drawer-title"><div class="flex items-start justify-between border-b border-slate-100 px-5 py-4"><div class="min-w-0"><div class="section-label mb-1">Detalle del APU</div><h2 id="apu-detail-drawer-title" class="truncate-safe text-[18px] font-extrabold tracking-[-.025em] text-slate-800">' + escapeHTML(apu.name) + '</h2><div class="mt-1 font-mono text-[10px] font-bold text-indigo-600">' + escapeHTML(apu.code || apu.id) + ' · ' + escapeHTML(apu.unit || "—") + '</div></div><button class="btn-secondary ml-4 shrink-0 px-2.5" data-action="close-apu-detail" type="button" aria-label="Cerrar detalle">×</button></div><div class="space-y-4 p-5"><div class="rounded-lg bg-indigo-50 px-3 py-2.5 text-[11px] leading-5 text-indigo-900">Precio unitario del APU: <strong class="money">' + formatCurrency(apu.unitPrice) + '</strong>. La lectura de productos es informativa y no modifica este precio.</div><div class="card p-4"><div class="mb-3 text-[12px] font-extrabold text-slate-700">Desglose de costos existente</div><div class="divide-y divide-slate-100">' + componentRows + '</div></div><div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] leading-5 text-amber-900"><strong>Compatibilidad:</strong> `components.materials` ya participa en el precio unitario del APU. Los productos relacionados se muestran por separado y no se suman al Financial Engine para evitar doble conteo.</div><div><div class="mb-1 flex flex-wrap items-end justify-between gap-2"><div><div class="section-label">Componentes específicos</div><h3 class="mt-1 text-[14px] font-extrabold text-slate-800">Productos de limpieza</h3></div><div class="text-right text-[10px] text-slate-400">' + quantityNote + '</div></div><div class="mt-3">' + productSection + '</div><div class="mt-2 text-[10px] leading-4 text-slate-400">Costo / APU = consumo por unidad × precio de compra. El total presupuesto aplica la cantidad actual del presupuesto sin persistir cambios.</div></div></div></aside>';
     }
 
     function renderBudgetView() {
@@ -2562,6 +3011,7 @@
 
     const viewRegistry = {
       "apu-catalog": renderApuCatalogView,
+      "cleaning-products": renderCleaningProductsView,
       "budget": renderBudgetView,
       "summary": renderSummaryView,
       "workflow": renderWorkflowView,
@@ -2612,7 +3062,7 @@
         mockDB: deepClone(mockDB),
         data: deepClone(appState.data),
         session: deepClone(appState.session),
-        ui: { activeView: "dashboard", activeScenarioId: appState.ui.activeScenarioId, selectedScenarioApuId: null, activeDocumentId: null, auditFilters: { role: "ALL", action: "ALL", entity: "ALL", category: "ALL", stage: "ALL", search: "" }, sidebarCollapsed: false, activeModal: null, toast: null },
+        ui: { activeView: "dashboard", activeScenarioId: appState.ui.activeScenarioId, selectedScenarioApuId: null, activeDocumentId: null, selectedCleaningProductId: null, selectedApuId: null, cleaningProductEditor: { open: false, mode: "create", productId: null, saving: false, error: "" }, apuCleaningProductsLoading: false, apuCleaningProductsLoaded: false, apuCleaningProductsError: "", cleaningProductsLoading: false, cleaningProductsLoaded: false, cleaningProductsError: "", cleaningProductFilters: { search: "", category: "ALL", active: "ALL" }, auditFilters: { role: "ALL", action: "ALL", entity: "ALL", category: "ALL", stage: "ALL", search: "" }, sidebarCollapsed: false, activeModal: null, toast: null },
         filters: deepClone(appState.filters),
         currentProjectId: appState.currentProjectId,
         currentBudgetId: appState.currentBudgetId,
@@ -3040,7 +3490,7 @@
           <td class="px-3 py-3 align-middle"><span class="chip whitespace-nowrap px-2 py-1 text-[10px] font-semibold">${escapeHTML(apu.category)}</span></td>
           <td class="px-3 py-3 align-middle"><span class="font-mono text-[11px] font-bold text-slate-500">${escapeHTML(apu.unit)}</span></td>
           <td class="money whitespace-nowrap px-3 py-3 text-right align-middle text-[12px] font-extrabold text-slate-700">${formatCurrency(apu.unitPrice)}</td>
-          <td class="px-5 py-3 text-right align-middle">${canAdd ? `<button class="btn-primary" data-action="add-apu" data-apu-id="${escapeHTML(apu.id)}" type="button">Agregar</button>` : `<span class="text-[10px] font-semibold text-slate-400">Solo lectura</span>`}</td>
+          <td class="px-5 py-3 text-right align-middle"><div class="flex justify-end gap-2"><button class="btn-secondary" data-action="open-apu-detail" data-apu-id="${escapeHTML(apu.id)}" type="button">Detalle</button>${canAdd ? `<button class="btn-primary" data-action="add-apu" data-apu-id="${escapeHTML(apu.id)}" type="button">Agregar</button>` : ""}</div></td>
         </tr>`).join("");
     }
 
@@ -3254,12 +3704,44 @@
     function handleAppClick(event) {
       const viewButton = event.target.closest("[data-view]");
       if (viewButton) { navigateTo(viewButton.dataset.view); return; }
+      const newProductButton = event.target.closest('[data-action="new-cleaning-product"]');
+      if (newProductButton) { openNewCleaningProductForm(); return; }
+      const editProductButton = event.target.closest('[data-action="edit-cleaning-product"]');
+      if (editProductButton) { openEditCleaningProductForm(editProductButton.dataset.productId); return; }
+      const closeProductEditorButton = event.target.closest('[data-action="close-cleaning-product-editor"]');
+      if (closeProductEditorButton) { closeCleaningProductEditor(); return; }
+      const saveProductButton = event.target.closest('[data-action="save-cleaning-product"]');
+      if (saveProductButton) { event.preventDefault(); void saveCleaningProduct(); return; }
+      const deactivateProductButton = event.target.closest('[data-action="deactivate-cleaning-product"]');
+      if (deactivateProductButton) { void deactivateCleaningProduct(deactivateProductButton.dataset.productId); return; }
+      const activateProductButton = event.target.closest('[data-action="activate-cleaning-product"]');
+      if (activateProductButton) { void activateCleaningProduct(activateProductButton.dataset.productId); return; }
+      const productButton = event.target.closest('[data-action="open-cleaning-product"]');
+      if (productButton) { openCleaningProductDrawer(productButton.dataset.productId); return; }
+      const closeProductButton = event.target.closest('[data-action="close-cleaning-product"]');
+      if (closeProductButton) { closeCleaningProductDrawer(); return; }
+      const apuDetailButton = event.target.closest('[data-action="open-apu-detail"]');
+      if (apuDetailButton) { openApuDetailDrawer(apuDetailButton.dataset.apuId); return; }
+      const closeApuDetailButton = event.target.closest('[data-action="close-apu-detail"]');
+      if (closeApuDetailButton) { closeApuDetailDrawer(); return; }
       const addButton = event.target.closest('[data-action="add-apu"]');
       if (addButton) { addApuToBudget(addButton.dataset.apuId); return; }
       const removeButton = event.target.closest('[data-action="remove-item"]');
       if (removeButton) { removeBudgetItem(removeButton.dataset.budgetItemId); return; }
       const actionButton = event.target.closest("[data-action]");
       if (!actionButton) return;
+      if (actionButton.dataset.action === "retry-cleaning-products") { void loadCleaningProducts(); return; }
+      if (actionButton.dataset.action === "retry-apu-cleaning-products") {
+        const apuId = actionButton.dataset.apuId || appState.ui.selectedApuId;
+        appState.ui.apuCleaningProductsLoading = false;
+        void loadApuCleaningProducts(apuId);
+        return;
+      }
+      if (actionButton.dataset.action === "clear-cleaning-product-filters") {
+        appState.ui.cleaningProductFilters = { search: "", category: "ALL", active: "ALL" };
+        renderCleaningProductsView();
+        return;
+      }
       const reason = document.getElementById("workflowDecisionReason")?.value || "";
       if (actionButton.dataset.action === "submit-technical-review") { submitForTechnicalReview(); return; }
       if (actionButton.dataset.action === "approve-technical") { approveTechnicalReview(); return; }
@@ -3298,6 +3780,11 @@
 
     function handleAppInput(event) {
       const target = event.target;
+      if (target.id === "cleaningProductSearch") {
+        appState.ui.cleaningProductFilters.search = target.value;
+        renderCleaningProductsView();
+        return;
+      }
       if (target.id === "apuSearch") {
         appState.filters.apuSearch = target.value;
         renderApuCatalog();
@@ -3323,6 +3810,16 @@
 
     function handleAppChange(event) {
       const target = event.target;
+      if (target.id === "cleaningProductCategory") {
+        appState.ui.cleaningProductFilters.category = target.value || "ALL";
+        renderCleaningProductsView();
+        return;
+      }
+      if (target.id === "cleaningProductActive") {
+        appState.ui.cleaningProductFilters.active = target.value || "ALL";
+        renderCleaningProductsView();
+        return;
+      }
       if (target.id === "scenarioSelector") {
         setActiveScenario(target.value);
         return;
@@ -3373,6 +3870,17 @@
       document.addEventListener("click", handleAppClick);
       document.addEventListener("input", handleAppInput);
       document.addEventListener("change", handleAppChange);
+      document.addEventListener("submit", event => {
+        if (event.target.matches('[data-action="cleaning-product-form"]')) {
+          event.preventDefault();
+          void saveCleaningProduct();
+        }
+      });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && appState.ui.cleaningProductEditor?.open) closeCleaningProductEditor();
+        if (event.key === "Escape" && appState.ui.selectedCleaningProductId) closeCleaningProductDrawer();
+        if (event.key === "Escape" && appState.ui.selectedApuId) closeApuDetailDrawer();
+      });
     }
 
     // ======================================================
@@ -3462,6 +3970,10 @@
         appState.session.currentRole = null;
         appState.session.permissions = [];
         appState.session.isAuthenticated = false;
+        appState.ui.selectedCleaningProductId = null;
+        appState.ui.selectedApuId = null;
+        renderCleaningProductDrawer();
+        renderApuDetailDrawer();
         apiConnectionState = "mock";
         appEl.hidden = true;
         loginEl.hidden = false;

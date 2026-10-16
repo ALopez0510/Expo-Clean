@@ -32,14 +32,51 @@ CONTROLLED_PROJECT_ID = "PRJ-DEMO-001"
 CONTROLLED_BUDGET_ID = "BUD-001"
 CONTROLLED_APU_IDS = tuple(f"APU-DEMO-{index:03d}" for index in range(1, 13))
 CONTROLLED_ITEM_IDS = tuple(f"BI-DEMO-{index:03d}" for index in range(1, 11))
+CONTROLLED_PRODUCT_IDS = tuple(f"PRD-DEMO-{index:03d}" for index in range(1, 16))
+CONTROLLED_RELATION_IDS = tuple(f"ACP-DEMO-{index:03d}" for index in range(1, 19))
 
-REQUIRED_COLUMNS = {
+BASE_REQUIRED_COLUMNS = {
     "clients": {"id", "name", "tax_id", "contact_name", "email"},
     "projects": {"id", "client_id", "name", "location", "currency", "status"},
     "apus": {"id", "code", "name", "category", "unit", "unit_price", "components"},
     "budgets": {"id", "project_id", "name", "version", "status", "totals", "settings"},
     "budget_items": {"id", "budget_id", "apu_id", "quantity", "unit_price", "subtotal"},
 }
+PRODUCT_REQUIRED_COLUMNS = {
+    "cleaning_products": {
+        "id",
+        "sku",
+        "name",
+        "category",
+        "brand",
+        "description",
+        "unit",
+        "presentation",
+        "content_quantity",
+        "content_unit",
+        "purchase_price",
+        "sale_price",
+        "supplier",
+        "sanitary_registration",
+        "active",
+        "metadata",
+        "created_at",
+        "updated_at",
+    },
+    "apu_cleaning_products": {
+        "id",
+        "apu_id",
+        "product_id",
+        "consumption_per_unit",
+        "unit",
+        "waste_factor",
+        "unit_price_snapshot",
+        "metadata",
+        "created_at",
+        "updated_at",
+    },
+}
+REQUIRED_COLUMNS = {**BASE_REQUIRED_COLUMNS, **PRODUCT_REQUIRED_COLUMNS}
 
 
 class DemoDataError(RuntimeError):
@@ -146,13 +183,23 @@ def sql_number(value: Decimal | int | float | str) -> str:
     return format(decimal_value, "f")
 
 
-def schema_columns() -> dict[str, set[str]]:
+def sql_nullable_string(value: object) -> str:
+    return "NULL" if value is None else sql_string(str(value))
+
+
+def sql_nullable_number(value: object) -> str:
+    return "NULL" if value is None else sql_number(value)
+
+
+def schema_columns(table_names: Iterable[str] | None = None) -> dict[str, set[str]]:
+    tables = tuple(table_names or REQUIRED_COLUMNS)
+    table_list = ", ".join(sql_string(table_name) for table_name in tables)
     rows = run_psql(
-        """
+        f"""
         SELECT table_name || '|' || column_name
         FROM information_schema.columns
         WHERE table_schema = 'public'
-          AND table_name IN ('clients', 'projects', 'apus', 'budgets', 'budget_items')
+          AND table_name IN ({table_list})
         ORDER BY table_name, ordinal_position;
         """,
         tuples_only=True,
@@ -164,12 +211,12 @@ def schema_columns() -> dict[str, set[str]]:
     return found
 
 
-def validate_schema() -> None:
-    found = schema_columns()
-    missing_tables = sorted(set(REQUIRED_COLUMNS) - set(found))
+def validate_schema(required_columns: dict[str, set[str]] = BASE_REQUIRED_COLUMNS) -> None:
+    found = schema_columns(required_columns)
+    missing_tables = sorted(set(required_columns) - set(found))
     missing_columns = {
         table: sorted(required - found.get(table, set()))
-        for table, required in REQUIRED_COLUMNS.items()
+        for table, required in required_columns.items()
         if required - found.get(table, set())
     }
     if missing_tables or missing_columns:
@@ -179,6 +226,37 @@ def validate_schema() -> None:
         if missing_columns:
             details.extend(f"columnas ausentes en {table}: {', '.join(columns)}" for table, columns in missing_columns.items())
         raise DemoDataError("El esquema real no coincide con el contrato consumido: " + "; ".join(details))
+
+
+def product_schema_state(found: dict[str, set[str]] | None = None) -> str:
+    """Return absent, complete, or raise for a partially applied product schema."""
+
+    found = found if found is not None else schema_columns(PRODUCT_REQUIRED_COLUMNS)
+    product_tables = set(PRODUCT_REQUIRED_COLUMNS)
+    found_product_tables = product_tables & set(found)
+    if not found_product_tables:
+        return "absent"
+    missing_tables = sorted(product_tables - set(found))
+    missing_columns = {
+        table: sorted(required - found.get(table, set()))
+        for table, required in PRODUCT_REQUIRED_COLUMNS.items()
+        if required - found.get(table, set())
+    }
+    if missing_tables or missing_columns:
+        details: list[str] = []
+        if missing_tables:
+            details.append("tablas ausentes: " + ", ".join(missing_tables))
+        if missing_columns:
+            details.extend(f"columnas ausentes en {table}: {', '.join(columns)}" for table, columns in missing_columns.items())
+        raise DemoDataError("El esquema de productos está incompleto: " + "; ".join(details))
+    return "complete"
+
+
+def validate_product_schema(found: dict[str, set[str]] | None = None) -> None:
+    if product_schema_state(found) != "complete":
+        raise DemoDataError(
+            "Faltan las tablas de productos demo. Aplica server/migrations/003_add_cleaning_products.sql antes de ejecutar start."
+        )
 
 
 def validate_connection() -> None:
@@ -237,6 +315,135 @@ def demo_items() -> list[dict[str, object]]:
     ]
 
 
+def demo_cleaning_products() -> list[dict[str, object]]:
+    """Return fictitious products with prices that are only for this demo."""
+
+    demo_metadata = {"demo": True, "source": "tools/demo_data.py", "marketPriceClaim": False}
+    source = [
+        ("CLN-DEMO-001", "Detergente neutro biodegradable", "Detergentes", "DemoClean", "Detergente para limpieza general; precio ficticio de demo.", "L", "Bidón de 5 L", "5", "L", "12.50", "14.00", "Proveedora Demo Andina", None),
+        ("CLN-DEMO-002", "Detergente alcalino concentrado", "Detergentes", "DemoClean", "Detergente concentrado para superficies lavables; precio ficticio de demo.", "L", "Galón de 3.8 L", "3.8", "L", "18.40", "20.50", "Químicos Ficticios del Pacífico", None),
+        ("CLN-DEMO-003", "Desinfectante de superficies", "Desinfectantes", "DemoClean", "Desinfectante de uso institucional; precio ficticio de demo.", "L", "Bidón de 5 L", "5", "L", "15.20", "17.00", "Proveedora Demo Andina", "DEMO-SAN-001"),
+        ("CLN-DEMO-004", "Amonio cuaternario quinta generación", "Desinfectantes", "DemoClean", "Concentrado desinfectante para la demo; precio ficticio de demo.", "L", "Bidón de 5 L", "5", "L", "22.80", "25.00", "Químicos Ficticios del Pacífico", "DEMO-SAN-002"),
+        ("CLN-DEMO-005", "Hipoclorito de sodio 1000 ppm", "Desinfectantes", "DemoClean", "Solución clorada de referencia para la demo; precio ficticio de demo.", "L", "Bidón de 5 L", "5", "L", "8.90", "10.00", "Higiene Controlada Demo", "DEMO-SAN-003"),
+        ("CLN-DEMO-006", "Desengrasante industrial", "Desengrasantes", "DemoClean", "Desengrasante para limpieza de superficies; precio ficticio de demo.", "L", "Bidón de 5 L", "5", "L", "19.75", "22.00", "Higiene Controlada Demo", None),
+        ("CLN-DEMO-007", "Limpiador multiuso neutro", "Desengrasantes", "DemoClean", "Limpiador multiuso para terminaciones; precio ficticio de demo.", "L", "Bidón de 5 L", "5", "L", "11.30", "13.00", "Proveedora Demo Andina", None),
+        ("CLN-DEMO-008", "Paño de microfibra", "Consumibles", "DemoClean", "Paño reutilizable de demostración; precio ficticio de demo.", "unidad", "Paquete de 12 unidades", "12", "unidad", "9.60", "11.00", "Insumos Demo Costa", None),
+        ("CLN-DEMO-009", "Esponja abrasiva", "Consumibles", "DemoClean", "Esponja para limpieza manual; precio ficticio de demo.", "unidad", "Paquete de 10 unidades", "10", "unidad", "4.20", "5.00", "Insumos Demo Costa", None),
+        ("CLN-DEMO-010", "Bolsa industrial reforzada 90x120 cm", "Desechables", "DemoClean", "Bolsa para residuos de obra y limpieza; precio ficticio de demo.", "unidad", "Rollo de 10 unidades", "10", "unidad", "7.50", "8.50", "Insumos Demo Costa", None),
+        ("CLN-DEMO-011", "Toalla de papel interdoblada", "Desechables", "DemoClean", "Toalla de papel institucional; precio ficticio de demo.", "unidad", "Caja de 2000 hojas", "2000", "hojas", "28.00", "31.00", "Higiene Controlada Demo", None),
+        ("CLN-DEMO-012", "Papel higiénico institucional", "Higiene", "DemoClean", "Papel higiénico institucional; precio ficticio de demo.", "rollo", "Fardo de 12 rollos", "12", "rollo", "18.00", "20.00", "Higiene Controlada Demo", None),
+        ("CLN-DEMO-013", "Jabón líquido para manos", "Higiene", "DemoClean", "Jabón líquido para higiene de manos; precio ficticio de demo.", "L", "Bidón de 5 L", "5", "L", "14.80", "16.50", "Proveedora Demo Andina", "DEMO-SAN-004"),
+        ("CLN-DEMO-014", "Guantes de nitrilo", "EPP", "DemoClean", "Guantes de protección para la demo; precio ficticio de demo.", "unidad", "Caja de 100 unidades", "100", "unidad", "24.00", "27.00", "EPP Ficticio Andino", None),
+        ("CLN-DEMO-015", "Mascarilla quirúrgica", "EPP", "DemoClean", "Mascarilla de protección para la demo; precio ficticio de demo.", "unidad", "Caja de 50 unidades", "50", "unidad", "6.80", "8.00", "EPP Ficticio Andino", "DEMO-SAN-005"),
+    ]
+    return [
+        {
+            "id": CONTROLLED_PRODUCT_IDS[index],
+            "sku": sku,
+            "name": name,
+            "category": category,
+            "brand": brand,
+            "description": description,
+            "unit": unit,
+            "presentation": presentation,
+            "content_quantity": Decimal(content_quantity),
+            "content_unit": content_unit,
+            "purchase_price": Decimal(purchase_price),
+            "sale_price": Decimal(sale_price),
+            "supplier": supplier,
+            "sanitary_registration": sanitary_registration,
+            "active": True,
+            "metadata": dict(demo_metadata),
+        }
+        for index, (sku, name, category, brand, description, unit, presentation, content_quantity, content_unit, purchase_price, sale_price, supplier, sanitary_registration) in enumerate(source)
+    ]
+
+
+def demo_apu_cleaning_products() -> list[dict[str, object]]:
+    """Relate products only to existing APUs used by the controlled demo."""
+
+    source = [
+        ("APU-DEMO-004", "PRD-DEMO-006", "0.020", "0.05"),
+        ("APU-DEMO-004", "PRD-DEMO-008", "0.010", "0.05"),
+        ("APU-DEMO-004", "PRD-DEMO-010", "0.030", "0.10"),
+        ("APU-DEMO-007", "PRD-DEMO-001", "0.030", "0.05"),
+        ("APU-DEMO-007", "PRD-DEMO-008", "0.010", "0.05"),
+        ("APU-DEMO-007", "PRD-DEMO-010", "0.020", "0.10"),
+        ("APU-DEMO-009", "PRD-DEMO-001", "0.040", "0.05"),
+        ("APU-DEMO-009", "PRD-DEMO-008", "0.015", "0.05"),
+        ("APU-DEMO-009", "PRD-DEMO-010", "0.020", "0.10"),
+        ("APU-DEMO-010", "PRD-DEMO-007", "0.020", "0.05"),
+        ("APU-DEMO-010", "PRD-DEMO-008", "0.020", "0.05"),
+        ("APU-DEMO-010", "PRD-DEMO-010", "0.020", "0.10"),
+        ("APU-DEMO-011", "PRD-DEMO-003", "0.010", "0.05"),
+        ("APU-DEMO-011", "PRD-DEMO-005", "0.005", "0.05"),
+        ("APU-DEMO-011", "PRD-DEMO-008", "0.005", "0.05"),
+        ("APU-DEMO-012", "PRD-DEMO-005", "0.020", "0.05"),
+        ("APU-DEMO-012", "PRD-DEMO-003", "0.010", "0.05"),
+        ("APU-DEMO-012", "PRD-DEMO-010", "0.030", "0.10"),
+    ]
+    products = {product["id"]: product for product in demo_cleaning_products()}
+    return [
+        {
+            "id": CONTROLLED_RELATION_IDS[index],
+            "apu_id": apu_id,
+            "product_id": product_id,
+            "consumption_per_unit": Decimal(consumption),
+            "unit": products[product_id]["unit"],
+            "waste_factor": Decimal(waste_factor),
+            "unit_price_snapshot": products[product_id]["purchase_price"],
+            "metadata": {"demo": True, "source": "tools/demo_data.py", "marketPriceClaim": False},
+        }
+        for index, (apu_id, product_id, consumption, waste_factor) in enumerate(source)
+    ]
+
+
+def validate_demo_seed_data() -> None:
+    """Validate IDs, positive consumption, prices, and in-seed FK targets."""
+
+    apus = demo_apus()
+    products = demo_cleaning_products()
+    relations = demo_apu_cleaning_products()
+    apu_ids = {apu["id"] for apu in apus}
+    product_ids = {product["id"] for product in products}
+    if apu_ids != set(CONTROLLED_APU_IDS):
+        raise ValueError("La lista de APUs demo no coincide con sus IDs controlados.")
+    if product_ids != set(CONTROLLED_PRODUCT_IDS) or len(products) != len(CONTROLLED_PRODUCT_IDS):
+        raise ValueError("La lista de productos demo no coincide con sus IDs controlados.")
+    if len(relations) != len(CONTROLLED_RELATION_IDS):
+        raise ValueError("La lista de relaciones APU-producto no coincide con sus IDs controlados.")
+
+    for product in products:
+        if not product["id"] or not product["sku"] or not product["name"]:
+            raise ValueError("Cada producto demo debe tener id, sku y nombre.")
+        if Decimal(str(product["purchase_price"])) < 0 or Decimal(str(product["sale_price"])) < 0:
+            raise ValueError(f"El producto {product['id']} tiene un precio negativo.")
+        if Decimal(str(product["content_quantity"])) <= 0:
+            raise ValueError(f"El producto {product['id']} tiene contenido no positivo.")
+        if not isinstance(product["metadata"], dict) or product["metadata"].get("demo") is not True:
+            raise ValueError(f"El producto {product['id']} no está marcado como demo.")
+
+    seen_pairs: set[tuple[str, str]] = set()
+    for relation in relations:
+        pair = (relation["apu_id"], relation["product_id"])
+        if relation["apu_id"] not in apu_ids:
+            raise ValueError(f"La relación {relation['id']} apunta a un APU inexistente en el seed.")
+        if relation["product_id"] not in product_ids:
+            raise ValueError(f"La relación {relation['id']} apunta a un producto inexistente en el seed.")
+        if Decimal(str(relation["consumption_per_unit"])) <= 0:
+            raise ValueError(f"La relación {relation['id']} tiene consumo no positivo.")
+        if not 0 <= Decimal(str(relation["waste_factor"])) <= 1:
+            raise ValueError(f"La relación {relation['id']} tiene desperdicio fuera de rango.")
+        product = next(item for item in products if item["id"] == relation["product_id"])
+        if relation["unit"] != product["unit"]:
+            raise ValueError(f"La relación {relation['id']} no coincide con la unidad del producto.")
+        if relation["unit_price_snapshot"] != product["purchase_price"]:
+            raise ValueError(f"La relación {relation['id']} no coincide con el precio de compra demo.")
+        if pair in seen_pairs:
+            raise ValueError(f"La relación APU-producto está duplicada: {pair[0]} / {pair[1]}.")
+        seen_pairs.add(pair)
+
+
 def rounded(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
@@ -270,6 +477,7 @@ def json_numbers(value: object) -> object:
 
 
 def build_start_sql() -> str:
+    validate_demo_seed_data()
     client = {
         "id": CONTROLLED_CLIENT_ID,
         "name": "Constructora Andina Demo",
@@ -303,6 +511,8 @@ def build_start_sql() -> str:
         "totals": json_numbers(totals),
         "settings": settings,
     }
+    products = demo_cleaning_products()
+    relations = demo_apu_cleaning_products()
 
     statements = ["BEGIN;"]
     statements.append(
@@ -321,6 +531,18 @@ def build_start_sql() -> str:
             f"({sql_string(apu['id'])}, {sql_string(apu['code'])}, {sql_string(apu['name'])}, {sql_string(apu['category'])}, {sql_string(apu['unit'])}, {sql_number(apu['unit_price'])}, {sql_json(apu['components'])}) "
             "ON CONFLICT (id) DO UPDATE SET code = EXCLUDED.code, name = EXCLUDED.name, category = EXCLUDED.category, unit = EXCLUDED.unit, unit_price = EXCLUDED.unit_price, components = EXCLUDED.components;"
         )
+    for product in products:
+        statements.append(
+            "INSERT INTO cleaning_products (id, sku, name, category, brand, description, unit, presentation, content_quantity, content_unit, purchase_price, sale_price, supplier, sanitary_registration, active, metadata) VALUES "
+            f"({sql_string(product['id'])}, {sql_string(product['sku'])}, {sql_string(product['name'])}, {sql_string(product['category'])}, {sql_nullable_string(product['brand'])}, {sql_nullable_string(product['description'])}, {sql_string(product['unit'])}, {sql_nullable_string(product['presentation'])}, {sql_nullable_number(product['content_quantity'])}, {sql_nullable_string(product['content_unit'])}, {sql_number(product['purchase_price'])}, {sql_nullable_number(product['sale_price'])}, {sql_nullable_string(product['supplier'])}, {sql_nullable_string(product['sanitary_registration'])}, {'TRUE' if product['active'] else 'FALSE'}, {sql_json(product['metadata'])}) "
+            "ON CONFLICT (id) DO UPDATE SET sku = EXCLUDED.sku, name = EXCLUDED.name, category = EXCLUDED.category, brand = EXCLUDED.brand, description = EXCLUDED.description, unit = EXCLUDED.unit, presentation = EXCLUDED.presentation, content_quantity = EXCLUDED.content_quantity, content_unit = EXCLUDED.content_unit, purchase_price = EXCLUDED.purchase_price, sale_price = EXCLUDED.sale_price, supplier = EXCLUDED.supplier, sanitary_registration = EXCLUDED.sanitary_registration, active = EXCLUDED.active, metadata = EXCLUDED.metadata, updated_at = NOW();"
+        )
+    for relation in relations:
+        statements.append(
+            "INSERT INTO apu_cleaning_products (id, apu_id, product_id, consumption_per_unit, unit, waste_factor, unit_price_snapshot, metadata) VALUES "
+            f"({sql_string(relation['id'])}, {sql_string(relation['apu_id'])}, {sql_string(relation['product_id'])}, {sql_number(relation['consumption_per_unit'])}, {sql_string(relation['unit'])}, {sql_number(relation['waste_factor'])}, {sql_number(relation['unit_price_snapshot'])}, {sql_json(relation['metadata'])}) "
+            "ON CONFLICT (id) DO UPDATE SET apu_id = EXCLUDED.apu_id, product_id = EXCLUDED.product_id, consumption_per_unit = EXCLUDED.consumption_per_unit, unit = EXCLUDED.unit, waste_factor = EXCLUDED.waste_factor, unit_price_snapshot = EXCLUDED.unit_price_snapshot, metadata = EXCLUDED.metadata, updated_at = NOW();"
+        )
     statements.append(
         "INSERT INTO budgets (id, project_id, name, version, status, totals, settings) VALUES "
         f"({sql_string(budget['id'])}, {sql_string(budget['project_id'])}, {sql_string(budget['name'])}, {budget['version']}, {sql_string(budget['status'])}, {sql_json(budget['totals'])}, {sql_json(budget['settings'])}) "
@@ -336,20 +558,45 @@ def build_start_sql() -> str:
     return "\n".join(statements) + "\n"
 
 
-def build_cleanup_sql() -> str:
+def build_cleanup_sql(*, include_products: bool = True) -> str:
     item_ids = ", ".join(sql_string(item_id) for item_id in CONTROLLED_ITEM_IDS)
     apu_ids = ", ".join(sql_string(apu_id) for apu_id in CONTROLLED_APU_IDS)
-    return "\n".join(
+    statements = ["BEGIN;"]
+    if include_products:
+        relation_ids = ", ".join(sql_string(relation_id) for relation_id in CONTROLLED_RELATION_IDS)
+        product_ids = ", ".join(sql_string(product_id) for product_id in CONTROLLED_PRODUCT_IDS)
+        statements.append(f"DELETE FROM apu_cleaning_products WHERE id IN ({relation_ids});")
+    statements.append(f"DELETE FROM budget_items WHERE id IN ({item_ids});")
+    statements.append(
+        f"DELETE FROM budgets WHERE id = {sql_string(CONTROLLED_BUDGET_ID)} "
+        f"AND NOT EXISTS (SELECT 1 FROM budget_items WHERE budget_id = {sql_string(CONTROLLED_BUDGET_ID)});"
+    )
+    if include_products:
+        statements.append(
+            f"DELETE FROM apus WHERE id IN ({apu_ids}) "
+            "AND NOT EXISTS (SELECT 1 FROM budget_items WHERE budget_items.apu_id = apus.id) "
+            "AND NOT EXISTS (SELECT 1 FROM apu_cleaning_products WHERE apu_cleaning_products.apu_id = apus.id);"
+        )
+    else:
+        statements.append(
+            f"DELETE FROM apus WHERE id IN ({apu_ids}) "
+            "AND NOT EXISTS (SELECT 1 FROM budget_items WHERE budget_items.apu_id = apus.id);"
+        )
+    if include_products:
+        statements.append(
+            f"DELETE FROM cleaning_products WHERE id IN ({product_ids}) "
+            "AND NOT EXISTS (SELECT 1 FROM apu_cleaning_products WHERE apu_cleaning_products.product_id = cleaning_products.id);"
+        )
+    statements.extend(
         [
-            "BEGIN;",
-            f"DELETE FROM budget_items WHERE id IN ({item_ids});",
-            f"DELETE FROM budgets WHERE id = {sql_string(CONTROLLED_BUDGET_ID)};",
-            f"DELETE FROM apus WHERE id IN ({apu_ids});",
-            f"DELETE FROM projects WHERE id = {sql_string(CONTROLLED_PROJECT_ID)};",
-            f"DELETE FROM clients WHERE id = {sql_string(CONTROLLED_CLIENT_ID)};",
+            f"DELETE FROM projects WHERE id = {sql_string(CONTROLLED_PROJECT_ID)} "
+            f"AND NOT EXISTS (SELECT 1 FROM budgets WHERE project_id = {sql_string(CONTROLLED_PROJECT_ID)});",
+            f"DELETE FROM clients WHERE id = {sql_string(CONTROLLED_CLIENT_ID)} "
+            f"AND NOT EXISTS (SELECT 1 FROM projects WHERE client_id = {sql_string(CONTROLLED_CLIENT_ID)});",
             "COMMIT;",
         ]
-    ) + "\n"
+    )
+    return "\n".join(statements) + "\n"
 
 
 def status() -> None:
@@ -380,11 +627,30 @@ def status() -> None:
     print(f"controlled budget items: {item_count}/{len(CONTROLLED_ITEM_IDS)}")
     print(f"direct total: USD {direct_total}")
     print(f"stored grand total: USD {grand_total}")
+    product_state = product_schema_state()
+    if product_state == "complete":
+        product_result = run_psql(
+            f"""
+            SELECT
+              (SELECT COUNT(*) FROM cleaning_products WHERE id IN ({', '.join(sql_string(value) for value in CONTROLLED_PRODUCT_IDS)})),
+              (SELECT COUNT(*) FROM apu_cleaning_products WHERE id IN ({', '.join(sql_string(value) for value in CONTROLLED_RELATION_IDS)}));
+            """,
+            tuples_only=True,
+        )
+        product_fields = [field.strip() for field in product_result.split("|")]
+        if len(product_fields) != 2:
+            raise DemoDataError("La consulta de productos demo devolvió un formato inesperado.")
+        print(f"Productos demo: {product_fields[0]}")
+        print(f"Relaciones APU-producto: {product_fields[1]}")
+    else:
+        print("Productos demo: esquema no aplicado (migración 003 pendiente)")
+        print("Relaciones APU-producto: esquema no aplicado (migración 003 pendiente)")
 
 
 def start() -> None:
     validate_connection()
     validate_schema()
+    validate_product_schema()
     run_psql(build_start_sql())
     print("Demo data created/updated in a single transaction.")
     status()
@@ -393,7 +659,8 @@ def start() -> None:
 def cleanup() -> None:
     validate_connection()
     validate_schema()
-    run_psql(build_cleanup_sql())
+    product_state = product_schema_state()
+    run_psql(build_cleanup_sql(include_products=product_state == "complete"))
     print("Controlled demo data removed; users, roles, and unrelated rows were not targeted.")
     status()
 
